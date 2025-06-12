@@ -99,20 +99,25 @@ def generate_prompt(
     from rich.tree import Tree
     from rich.console import Console
     console = Console()
-    tree = Tree("📁 .")
+    root_path = file_tree[0].parent
+    tree = Tree(f"📁 {root_path.name}")
     
     def build_tree(path: Path, tree: Tree) -> None:
         """Build a tree representation of the codebase."""
-        for item in sorted(path.iterdir()):
+        # Sort items: directories first, then files
+        items = sorted(path.iterdir(), key=lambda x: (not x.is_dir(), x.name))
+        for item in items:
+            # Skip hidden files and directories
+            if any(part.startswith(".") for part in item.parts):
+                continue
+                
             if item.is_dir():
-                if not any(part.startswith(".") for part in item.parts):
-                    branch = tree.add(f"📁 {item.name}")
-                    build_tree(item, branch)
+                branch = tree.add(f"📁 {item.name}")
+                build_tree(item, branch)
             else:
-                if not any(part.startswith(".") for part in item.parts):
-                    tree.add(f"📄 {item.name}")
+                tree.add(f"📄 {item.name}")
 
-    build_tree(file_tree[0].parent, tree)
+    build_tree(root_path, tree)
     with console.capture() as capture:
         console.print(tree)
     prompt_parts.append("Project Structure:")
@@ -122,11 +127,11 @@ def generate_prompt(
     # Add each file's contents
     for file_path in file_tree:
         if file_path in file_contents:
-            rel_path = file_path.relative_to(file_path.parent.parent)
-            prompt_parts.append(f"File: {rel_path}\n")
-            prompt_parts.append("```\n")
+            rel_path = file_path.relative_to(root_path)
+            prompt_parts.append(f"Relative File Path: {rel_path}\n")
+            prompt_parts.append("```")
             prompt_parts.append(file_contents[file_path])
-            prompt_parts.append("\n```\n")
+            prompt_parts.append("```\n")
 
     return "\n".join(prompt_parts)
 
