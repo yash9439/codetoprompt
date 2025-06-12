@@ -6,7 +6,18 @@ Convert your codebase into a single LLM prompt!
 
 ```bash
 # Install the Python package
-pip install codetoprompt
+pip install --user codetoprompt
+
+# If you get "command not found" error after installation, add this to your shell config file:
+# For bash: ~/.bashrc
+# For zsh: ~/.zshrc
+# For fish: ~/.config/fish/config.fish
+
+# Add this line to your shell config:
+export PATH="$HOME/.local/bin:$PATH"
+
+# Then reload your shell config:
+source ~/.bashrc  # or source ~/.zshrc or source ~/.config/fish/config.fish
 
 # System Dependencies
 # For clipboard support on Linux:

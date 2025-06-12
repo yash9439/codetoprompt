@@ -38,8 +38,10 @@ class CodeToPrompt:
         except pygit2.GitError:
             self.repo = None
             
-        # Initialize tokenizer
+        # Initialize tokenizer with special token handling
         self.tokenizer = tiktoken.get_encoding("cl100k_base")
+        # Disable special token checks to handle any text content
+        self.tokenizer.disallowed_special = set()
         
         # Initialize pathspec for gitignore
         if self.respect_gitignore and self.repo:
@@ -162,7 +164,7 @@ class CodeToPrompt:
         if self.max_tokens:
             tokens = self.tokenizer.encode(prompt)
             if len(tokens) > self.max_tokens:
-                self.console.print(f"[yellow]Warning: Prompt exceeds {self.max_tokens} tokens[/yellow]")
+                self.console.print(f"[yellow]Warning: Prompt exceeds {self.max_tokens} tokens ({len(tokens)} tokens)[/yellow]")
                 
         return prompt
 
