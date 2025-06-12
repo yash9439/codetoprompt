@@ -40,7 +40,8 @@ class CodeToPrompt:
             
         # Initialize tokenizer with special token handling
         self.tokenizer = tiktoken.get_encoding("cl100k_base")
-        # Disable special token checks to handle any text content
+        # Allow all special tokens to be processed as normal text
+        self.tokenizer.allowed_special = set()
         self.tokenizer.disallowed_special = set()
         
         # Initialize pathspec for gitignore
