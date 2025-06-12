@@ -113,6 +113,7 @@ def process_files(
     respect_gitignore: bool = True,
     output_file: Optional[str] = None,
     count_tokens: bool = False,
+    copy_to_clipboard: bool = True,
 ) -> None:
     """Process all files in a directory and generate a prompt.
 
@@ -122,6 +123,7 @@ def process_files(
         respect_gitignore: Whether to respect .gitignore rules
         output_file: Optional output file path
         count_tokens: Whether to count tokens in the output
+        copy_to_clipboard: Whether to copy the prompt to clipboard
     """
     # Get git info if needed
     git_info = get_git_info(directory) if respect_gitignore else None
@@ -145,8 +147,19 @@ def process_files(
         token_count = len(prompt.split())
         print(f"\nToken count: {token_count}")
 
+    # Copy to clipboard if requested
+    if copy_to_clipboard:
+        try:
+            import pyperclip
+            pyperclip.copy(prompt)
+            print("\n✓ Prompt copied to clipboard")
+        except Exception as e:
+            print(f"\nWarning: Could not copy to clipboard: {e}")
+
     # Save to file or print to stdout
     if output_file:
         with open(output_file, "w", encoding="utf-8") as f:
             f.write(prompt)
         print(f"\nPrompt saved to: {output_file}")
+    else:
+        print(prompt)
