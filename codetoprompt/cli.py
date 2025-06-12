@@ -1,5 +1,7 @@
-import sys
+#!/usr/bin/env python3
+
 import argparse
+import sys
 from pathlib import Path
 from rich.console import Console
 from rich.progress import (
@@ -10,6 +12,7 @@ from rich.progress import (
     TimeElapsedColumn,
 )
 from .core import CodeToPrompt
+from .utils import process_files
 
 
 def main(args=None):
@@ -18,70 +21,56 @@ def main(args=None):
         args = sys.argv[1:]
 
     parser = argparse.ArgumentParser(
-        description="Convert your codebase into a single LLM prompt"
-    )
-    parser.add_argument("directory", help="Directory to process")
-    parser.add_argument("--output", "-o", help="Output file path")
-    parser.add_argument(
-        "--include", "-i", action="append", help="File patterns to include"
+        description="Convert code files to a prompt format."
     )
     parser.add_argument(
-        "--exclude", "-e", action="append", help="File patterns to exclude"
+        "directory",
+        type=str,
+        help="Directory containing code files to process",
     )
     parser.add_argument(
-        "--no-line-numbers", action="store_true", help="Disable line numbers"
+        "--show-line-numbers",
+        action="store_true",
+        help="Show line numbers in the output",
     )
-    parser.add_argument("--max-tokens", type=int, help="Maximum number of tokens")
+    parser.add_argument(
+        "--respect-gitignore",
+        action="store_true",
+        help="Respect .gitignore rules",
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        help="Output file path (default: print to stdout)",
+    )
+    parser.add_argument(
+        "--count-tokens",
+        action="store_true",
+        help="Count tokens in the generated prompt",
+    )
 
     args = parser.parse_args(args)
+    directory = Path(args.directory)
 
-    console = Console()
+    if not directory.exists():
+        print(f"Error: Directory '{directory}' does not exist")
+        return 1
+
+    if not directory.is_dir():
+        print(f"Error: '{directory}' is not a directory")
+        return 1
 
     try:
-        # Validate directory
-        directory = Path(args.directory)
-        if not directory.exists():
-            console.print(
-                f"[red]Error: Directory '{args.directory}' does not exist[/red]"
-            )
-            return 1
-        if not directory.is_dir():
-            console.print(f"[red]Error: '{args.directory}' is not a directory[/red]")
-            return 1
-
-        # Initialize processor
-        processor = CodeToPrompt(
-            args.directory,
-            include_patterns=args.include,
-            exclude_patterns=args.exclude,
-            show_line_numbers=not args.no_line_numbers,
-            max_tokens=args.max_tokens,
+        process_files(
+            directory,
+            show_line_numbers=args.show_line_numbers,
+            respect_gitignore=args.respect_gitignore,
+            output_file=args.output,
+            count_tokens=args.count_tokens,
         )
-
-        # Process files with progress bar
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TimeElapsedColumn(),
-            console=console,
-        ) as progress:
-            task = progress.add_task("Processing files...", total=None)
-            prompt = processor.generate_prompt(progress)
-
-        # Save to file or print to console
-        if args.output:
-            output_path = Path(args.output)
-            processor.save_to_file(str(output_path))
-            console.print(f"\n[green]✓[/green] Prompt saved to: {output_path}")
-        else:
-            console.print("\nGenerated Prompt:")
-            console.print(prompt)
-
         return 0
-
     except Exception as e:
-        console.print(f"[red]Error:[/red] {str(e)}")
+        print(f"Error: {str(e)}")
         return 1
 
 

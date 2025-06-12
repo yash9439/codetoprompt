@@ -3,7 +3,7 @@ import pygit2
 import tiktoken
 import pyperclip
 from pathlib import Path
-from typing import List, Optional, Set
+from typing import List, Optional, Set, Dict, Tuple
 from pathspec import PathSpec
 from pathspec.patterns import GitWildMatchPattern
 from rich.console import Console
@@ -20,8 +20,17 @@ import threading
 import platform
 import subprocess
 
+from codetoprompt.utils import (
+    build_file_tree,
+    get_git_info,
+    generate_prompt,
+    process_file,
+)
+
 
 class CodeToPrompt:
+    """Main class for converting code to prompt format."""
+
     def __init__(
         self,
         root_dir: str,
@@ -31,6 +40,16 @@ class CodeToPrompt:
         show_line_numbers: bool = True,
         max_tokens: Optional[int] = None,
     ):
+        """Initialize the CodeToPrompt processor.
+
+        Args:
+            root_dir: Root directory to process
+            include_patterns: List of patterns to include
+            exclude_patterns: List of patterns to exclude
+            respect_gitignore: Whether to respect .gitignore rules
+            show_line_numbers: Whether to show line numbers in output
+            max_tokens: Maximum number of tokens in the prompt
+        """
         self.root_dir = Path(root_dir).resolve()
         self.include_patterns = include_patterns or ["*"]
         self.exclude_patterns = exclude_patterns or []
@@ -147,28 +166,28 @@ class CodeToPrompt:
         return (rel_path, content)
 
     def generate_prompt(self, progress: Optional[Progress] = None) -> str:
-        """Generate the prompt from processed files."""
-        # Process files if not already processed
-        if not self.processed_files:
-            files = self._get_files()
-            for file_path in files:
-                rel_path, content = self._process_file(file_path)
-                self.processed_files[file_path] = content
+        """Generate a prompt from the codebase.
 
-        prompt_parts = []
-        for file_path, content in self.processed_files.items():
-            try:
-                rel_path = file_path.relative_to(self.root_dir)
-                prompt_parts.append(f"File: {rel_path}\n")
-                prompt_parts.append("```\n")
-                prompt_parts.append(content)
-                prompt_parts.append("\n```\n")
-            except Exception as e:
-                # Log the error but continue processing
-                print(f"Warning: Could not process {file_path}: {str(e)}")
-                continue
+        Returns:
+            str: The generated prompt
+        """
+        # Get git info if needed
+        git_info = self._get_git_info() if self.respect_gitignore else None
 
-        prompt = "\n".join(prompt_parts)
+        # Build file tree
+        file_tree = build_file_tree(self.root_dir, git_info)
+
+        # Process each file
+        file_contents = {}
+        for file_path in file_tree:
+            if file_path.is_file():
+                content = process_file(file_path, self.show_line_numbers)
+                if content:
+                    file_contents[file_path] = content
+                    self.processed_files[file_path] = content
+
+        # Generate the final prompt
+        prompt = generate_prompt(file_tree, file_contents, git_info)
 
         # Try to get token count, but don't fail if it doesn't work
         try:
@@ -221,22 +240,11 @@ class CodeToPrompt:
             return False
 
     def get_token_count(self) -> int:
-        """Get the total number of tokens in the processed files."""
-        # Process files if not already processed
+        """Get the token count of the generated prompt.
+
+        Returns:
+            int: Number of tokens in the prompt
+        """
         if not self.processed_files:
-            files = self._get_files()
-            for file_path in files:
-                rel_path, content = self._process_file(file_path)
-                self.processed_files[file_path] = content
-
-        total_tokens = 0
-        for file_path, content in self.processed_files.items():
-            try:
-                # Try to encode the content
-                tokens = self.tokenizer.encode(content)
-                total_tokens += len(tokens)
-            except Exception as e:
-                print(f"Warning: Could not count tokens for {file_path}: {str(e)}")
-                continue
-
-        return total_tokens
+            self.generate_prompt()
+        return len(self.generate_prompt().split())
