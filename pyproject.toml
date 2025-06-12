@@ -4,45 +4,47 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "codetoprompt"
-version = "0.3.0"
+version = "0.4.0"
 description = "Convert your codebase into a single LLM prompt"
 readme = "README.md"
 requires-python = ">=3.8"
 license = { text = "MIT" }
 authors = [
-    { name = "Yash Bhaskar", email = "yash9439@gmail.com" }
+{ name = "Yash Bhaskar", email = "yash9439@gmail.com" }
 ]
 classifiers = [
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Operating System :: OS Independent",
-    "Development Status :: 4 - Beta",
-    "Intended Audience :: Developers",
-    "Topic :: Software Development :: Libraries :: Python Modules",
-    "Topic :: Software Development :: Version Control :: Git",
-    "Topic :: Text Processing :: General",
+"Programming Language :: Python :: 3.8",
+"Programming Language :: Python :: 3.9",
+"Programming Language :: Python :: 3.10",
+"Programming Language :: Python :: 3.11",
+"Programming Language :: Python :: 3.12",
+"Operating System :: OS Independent",
+"Development Status :: 4 - Beta",
+"Intended Audience :: Developers",
+"License :: OSI Approved :: MIT License",
+"Topic :: Software Development :: Libraries :: Python Modules",
+"Topic :: Software Development :: Version Control :: Git",
+"Topic :: Text Processing :: General",
+"Topic :: Utilities",
 ]
 dependencies = [
-    "pygit2>=1.12.0",
-    "tiktoken>=0.5.0",
-    "pyperclip>=1.8.2",
-    "jinja2>=3.1.0",
-    "pathspec>=0.11.0",
-    "rich>=13.0.0",
-    "typing-extensions>=4.0.0",
+"pygit2>=1.12.0",
+"tiktoken>=0.5.0",
+"pyperclip>=1.8.2",
+"pathspec>=0.11.0",
+"rich>=13.0.0",
+"toml>=0.10.2",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.0.0",
-    "pytest-cov>=4.0.0",
-    "black>=23.0.0",
-    "isort>=5.0.0",
-    "mypy>=1.0.0",
-    "flake8>=6.0.0",
+"pytest>=7.0.0",
+"pytest-cov>=4.0.0",
+"black>=23.0.0",
+"isort>=5.0.0",
+"mypy>=1.0.0",
+"flake8>=6.0.0",
+"pre-commit>=3.0.0",
 ]
 
 [project.urls]
@@ -50,9 +52,59 @@ Homepage = "https://github.com/yash9439/codetoprompt"
 Documentation = "https://github.com/yash9439/codetoprompt#readme"
 Repository = "https://github.com/yash9439/codetoprompt"
 Issues = "https://github.com/yash9439/codetoprompt/issues"
+Changelog = "https://github.com/yash9439/codetoprompt/blob/main/CHANGELOG.md"
 
 [project.scripts]
 codetoprompt = "codetoprompt.cli:main"
 
 [tool.setuptools]
-packages = ["codetoprompt"] 
+packages = ["codetoprompt"]
+
+[tool.setuptools.package-data]
+codetoprompt = ["py.typed"]
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+include = '.pyi?$'
+extend-exclude = '''
+/(
+directories
+
+.eggs
+| .git
+| .hg
+| .mypy_cache
+| .tox
+| .venv
+| build
+| dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 88
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_.py"]
+python_classes = ["Test"]
+python_functions = ["test_*"]
+addopts = "--cov=codetoprompt --cov-report=term-missing --cov-report=html"
