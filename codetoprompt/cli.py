@@ -64,17 +64,17 @@ def main(args=None):
     console = Console()
 
     # Show configuration summary
-    config_panel = Panel(
-        f"""Configuration:
-Root Directory: {directory}
-Include Patterns: ['*']
-Exclude Patterns: []
-Respect .gitignore: {args.respect_gitignore}
-Show Line Numbers: {args.show_line_numbers}
-Max Tokens: Unlimited
-Copy to Clipboard: True""",
+    config_panel = Panel.fit(
+        f"[bold]Configuration:[/bold]\n"
+        f"Root Directory: {directory}\n"
+        f"Include Patterns: ['*']\n"
+        f"Exclude Patterns: []\n"
+        f"Respect .gitignore: {args.respect_gitignore}\n"
+        f"Show Line Numbers: {args.show_line_numbers}\n"
+        f"Max Tokens: Unlimited\n"
+        f"Copy to Clipboard: True",
         title="CodeToPrompt",
-        border_style="blue",
+        border_style="blue"
     )
     console.print(config_panel)
 
@@ -95,6 +95,17 @@ Copy to Clipboard: True""",
                 count_tokens=args.count_tokens,
                 copy_to_clipboard=True,
             )
+            
+            # Add summary panel
+            summary_panel = Panel.fit(
+                f"[bold]Summary:[/bold]\n"
+                f"Total Tokens: {len(process_files.prompt.split()) if hasattr(process_files, 'prompt') else 'N/A'}\n"
+                f"Output File: {args.output or 'None'}\n"
+                f"Copied to Clipboard: Yes",
+                title="Processing Complete",
+                border_style="green"
+            )
+            console.print(summary_panel)
         return 0
     except Exception as e:
         console.print(f"[red]Error:[/red] {str(e)}")

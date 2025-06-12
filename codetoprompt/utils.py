@@ -114,7 +114,7 @@ def process_files(
     output_file: Optional[str] = None,
     count_tokens: bool = False,
     copy_to_clipboard: bool = True,
-) -> None:
+) -> str:
     """Process all files in a directory and generate a prompt.
 
     Args:
@@ -124,6 +124,9 @@ def process_files(
         output_file: Optional output file path
         count_tokens: Whether to count tokens in the output
         copy_to_clipboard: Whether to copy the prompt to clipboard
+
+    Returns:
+        str: The generated prompt
     """
     # Get git info if needed
     git_info = get_git_info(directory) if respect_gitignore else None
@@ -162,3 +165,7 @@ def process_files(
             f.write(prompt)
         print(f"\nPrompt saved to: {output_file}")
     print("✅ Done. Ran successfully")
+
+    # Store prompt as attribute for access in CLI
+    process_files.prompt = prompt
+    return prompt
