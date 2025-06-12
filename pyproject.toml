@@ -4,35 +4,25 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "codetoprompt"
-version = "0.1.8"
+version = "0.1.9"
 description = "Convert your codebase into a single LLM prompt"
 readme = "README.md"
 requires-python = ">=3.8"
-license = { text = "MIT" }
+license = {text = "MIT"}
 authors = [
-    { name = "Yash Bhaskar", email = "yash9439@gmail.com" }
+    {name = "Yash", email = "yash9439@gmail.com"},
 ]
 classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
-    "Operating System :: OS Independent",
-    "Development Status :: 4 - Beta",
-    "Intended Audience :: Developers",
-    "Topic :: Software Development :: Libraries :: Python Modules",
-    "Topic :: Software Development :: Version Control :: Git",
-    "Topic :: Text Processing :: General",
 ]
 dependencies = [
-    "pygit2>=1.12.0",
-    "tiktoken>=0.5.0",
-    "pyperclip>=1.8.2",
-    "jinja2>=3.1.0",
     "pathspec>=0.11.0",
-    "rich>=13.0.0",
-    "typing-extensions>=4.0.0",
 ]
 
 [project.optional-dependencies]
@@ -40,19 +30,12 @@ dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
     "black>=23.0.0",
-    "isort>=5.0.0",
-    "mypy>=1.0.0",
-    "flake8>=6.0.0",
 ]
 
 [project.urls]
 Homepage = "https://github.com/yash9439/codetoprompt"
-Documentation = "https://github.com/yash9439/codetoprompt#readme"
-Repository = "https://github.com/yash9439/codetoprompt"
+Repository = "https://github.com/yash9439/codetoprompt.git"
 Issues = "https://github.com/yash9439/codetoprompt/issues"
 
 [project.scripts]
-codetoprompt = "codetoprompt.cli:main"
-
-[tool.setuptools]
-packages = ["codetoprompt"] 
+codetoprompt = "codetoprompt.cli:main" 
