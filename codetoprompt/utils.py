@@ -149,7 +149,6 @@ def process_files(
     if output_file:
         with open(output_file, "w", encoding="utf-8") as f:
             f.write(prompt)
-        print(f"\nPrompt saved to: {output_file}")
     else:
-        print("\nGenerated Prompt:")
-        print(prompt)
+        with open("prompt.txt", "w", encoding="utf-8") as f:
+            f.write(prompt)

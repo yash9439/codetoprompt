@@ -4,6 +4,7 @@ import argparse
 import sys
 from pathlib import Path
 from rich.console import Console
+from rich.panel import Panel
 from rich.progress import (
     Progress,
     SpinnerColumn,
@@ -60,17 +61,46 @@ def main(args=None):
         print(f"Error: '{directory}' is not a directory")
         return 1
 
+    console = Console()
+
+    # Show configuration summary
+    config_panel = Panel(
+        f"""Configuration:
+Root Directory: {directory}
+Include Patterns: ['*']
+Exclude Patterns: []
+Respect .gitignore: {args.respect_gitignore}
+Show Line Numbers: {args.show_line_numbers}
+Max Tokens: Unlimited
+Copy to Clipboard: False""",
+        title="CodeToPrompt",
+        border_style="blue",
+    )
+    console.print(config_panel)
+
     try:
-        process_files(
-            directory,
-            show_line_numbers=args.show_line_numbers,
-            respect_gitignore=args.respect_gitignore,
-            output_file=args.output,
-            count_tokens=args.count_tokens,
-        )
+        # Process files with progress bar
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            TimeElapsedColumn(),
+            console=console,
+        ) as progress:
+            task = progress.add_task("Processing files...", total=None)
+            process_files(
+                directory,
+                show_line_numbers=args.show_line_numbers,
+                respect_gitignore=args.respect_gitignore,
+                output_file=args.output,
+                count_tokens=args.count_tokens,
+            )
+            progress.update(task, completed=True)
+
+        if args.output:
+            console.print(f"\n[green]✓[/green] Prompt saved to: {args.output}")
         return 0
     except Exception as e:
-        print(f"Error: {str(e)}")
+        console.print(f"[red]Error:[/red] {str(e)}")
         return 1
 
 
