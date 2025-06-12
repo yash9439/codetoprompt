@@ -99,7 +99,7 @@ def generate_prompt(
     from rich.tree import Tree
     from rich.console import Console
     console = Console()
-    root_path = file_tree[0].parent
+    root_path = file_tree[0].parent.parent  # Get the actual root directory
     tree = Tree(f"📁 {root_path.name}")
     
     def build_tree(path: Path, tree: Tree) -> None:
