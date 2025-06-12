@@ -7,6 +7,7 @@ import pytest
 
 from codetoprompt.cli import main
 
+
 def test_cli_help(capsys):
     """Test CLI help message."""
     with pytest.raises(SystemExit) as exc_info:
@@ -14,6 +15,7 @@ def test_cli_help(capsys):
     assert exc_info.value.code == 0
     captured = capsys.readouterr()
     assert "Convert code files to a prompt format" in captured.out
+
 
 def test_cli_with_output(temp_dir, capsys):
     """Test CLI with output file."""
@@ -26,6 +28,7 @@ def test_cli_with_output(temp_dir, capsys):
     assert result == 0
     assert output_file.exists()
     assert "print('test')" in output_file.read_text()
+
 
 def test_cli_with_gitignore(temp_dir, capsys):
     """Test CLI with .gitignore."""
