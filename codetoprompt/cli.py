@@ -72,7 +72,7 @@ Exclude Patterns: []
 Respect .gitignore: {args.respect_gitignore}
 Show Line Numbers: {args.show_line_numbers}
 Max Tokens: Unlimited
-Copy to Clipboard: False""",
+Copy to Clipboard: True""",
         title="CodeToPrompt",
         border_style="blue",
     )
@@ -82,6 +82,8 @@ Copy to Clipboard: False""",
         with Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TimeElapsedColumn(),
             console=console,
         ) as progress:
             task = progress.add_task("Processing files...", total=None)
@@ -91,6 +93,7 @@ Copy to Clipboard: False""",
                 respect_gitignore=args.respect_gitignore,
                 output_file=args.output,
                 count_tokens=args.count_tokens,
+                copy_to_clipboard=True,
             )
         return 0
     except Exception as e:
