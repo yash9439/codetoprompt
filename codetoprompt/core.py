@@ -54,6 +54,9 @@ class CodeToPrompt:
                 self.gitignore = None
         else:
             self.gitignore = None
+            
+        # Initialize processed files dictionary
+        self.processed_files = {}
 
     def _check_clipboard_requirements(self) -> bool:
         """Check if clipboard requirements are met."""
@@ -128,6 +131,13 @@ class CodeToPrompt:
 
     def generate_prompt(self, progress: Optional[Progress] = None) -> str:
         """Generate the prompt from processed files."""
+        # Process files if not already processed
+        if not self.processed_files:
+            files = self._get_files()
+            for file_path in files:
+                rel_path, content = self._process_file(file_path)
+                self.processed_files[file_path] = content
+                
         prompt_parts = []
         for file_path, content in self.processed_files.items():
             try:
