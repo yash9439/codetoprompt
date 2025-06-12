@@ -79,11 +79,9 @@ Copy to Clipboard: False""",
     console.print(config_panel)
 
     try:
-        # Process files with progress bar
         with Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
-            TimeElapsedColumn(),
             console=console,
         ) as progress:
             task = progress.add_task("Processing files...", total=None)
@@ -94,10 +92,6 @@ Copy to Clipboard: False""",
                 output_file=args.output,
                 count_tokens=args.count_tokens,
             )
-            progress.update(task, completed=True)
-
-        if args.output:
-            console.print(f"\n[green]✓[/green] Prompt saved to: {args.output}")
         return 0
     except Exception as e:
         console.print(f"[red]Error:[/red] {str(e)}")

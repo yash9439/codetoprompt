@@ -27,9 +27,6 @@ dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
     "black>=23.0.0",
-    "isort>=5.0.0",
-    "flake8>=6.0.0",
-    "mypy>=1.0.0",
 ]
 
 [project.urls]
@@ -45,19 +42,4 @@ codetoprompt = ["py.typed"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-addopts = "--cov=codetoprompt --cov-report=term-missing"
-
-[tool.black]
-line-length = 88
-target-version = ["py38"]
-
-[tool.isort]
-profile = "black"
-line_length = 88
-
-[tool.mypy]
-python_version = "3.8"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true 
+addopts = "--cov=codetoprompt --cov-report=term-missing" 
