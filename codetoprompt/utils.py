@@ -95,6 +95,30 @@ def generate_prompt(
     if git_info:
         prompt_parts.append("Files matching .gitignore patterns have been excluded.\n")
 
+    # Add tree representation
+    from rich.tree import Tree
+    from rich.console import Console
+    console = Console()
+    tree = Tree("📁 .")
+    
+    def build_tree(path: Path, tree: Tree) -> None:
+        """Build a tree representation of the codebase."""
+        for item in sorted(path.iterdir()):
+            if item.is_dir():
+                if not any(part.startswith(".") for part in item.parts):
+                    branch = tree.add(f"📁 {item.name}")
+                    build_tree(item, branch)
+            else:
+                if not any(part.startswith(".") for part in item.parts):
+                    tree.add(f"📄 {item.name}")
+
+    build_tree(file_tree[0].parent, tree)
+    with console.capture() as capture:
+        console.print(tree)
+    prompt_parts.append("Project Structure:")
+    prompt_parts.append(capture.get())
+    prompt_parts.append("\n")
+
     # Add each file's contents
     for file_path in file_tree:
         if file_path in file_contents:
