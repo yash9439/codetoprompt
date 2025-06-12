@@ -161,5 +161,4 @@ def process_files(
         with open(output_file, "w", encoding="utf-8") as f:
             f.write(prompt)
         print(f"\nPrompt saved to: {output_file}")
-    else:
-        print(prompt)
+    print("✅ Done. Ran successfully")
