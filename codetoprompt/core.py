@@ -127,46 +127,30 @@ class CodeToPrompt:
         return (rel_path, content)
 
     def generate_prompt(self, progress: Optional[Progress] = None) -> str:
-        """Generate the prompt from the codebase."""
+        """Generate the prompt from processed files."""
         prompt_parts = []
-        
-        # Add git information if available
-        git_info = self._get_git_info()
-        if git_info:
-            prompt_parts.append("=== Git Repository Information ===")
-            prompt_parts.append(git_info)
-            prompt_parts.append("")
-            
-        # Add file tree
-        prompt_parts.append("=== File Structure ===")
-        tree = Tree("📁 " + str(self.root_dir.name))
-        self._build_tree(self.root_dir, tree)
-        # Convert tree to string using rich's console
-        console = Console(width=100)  # Set a reasonable width
-        with console.capture() as capture:
-            console.print(tree)
-        prompt_parts.append(capture.get())
-        prompt_parts.append("")
-            
-        # Get all files
-        files = list(self._get_files())
-            
-        # Process files in parallel
-        prompt_parts.append("=== File Contents ===")
-            
-        with ThreadPoolExecutor() as executor:
-            for rel_path, content in executor.map(self._process_file, files):
-                prompt_parts.append(f"\n=== {rel_path} ===")
+        for file_path, content in self.processed_files.items():
+            try:
+                rel_path = file_path.relative_to(self.root_dir)
+                prompt_parts.append(f"File: {rel_path}\n")
+                prompt_parts.append("```\n")
                 prompt_parts.append(content)
-            
+                prompt_parts.append("\n```\n")
+            except Exception as e:
+                # Log the error but continue processing
+                print(f"Warning: Could not process {file_path}: {str(e)}")
+                continue
+
         prompt = "\n".join(prompt_parts)
         
-        # Check token limit
-        if self.max_tokens:
-            tokens = self.tokenizer.encode(prompt)
-            if len(tokens) > self.max_tokens:
-                self.console.print(f"[yellow]Warning: Prompt exceeds {self.max_tokens} tokens ({len(tokens)} tokens)[/yellow]")
-                
+        # Try to get token count, but don't fail if it doesn't work
+        try:
+            token_count = self.get_token_count()
+            if token_count > self.max_tokens:
+                print(f"Warning: Generated prompt exceeds token limit ({token_count} > {self.max_tokens})")
+        except Exception as e:
+            print(f"Warning: Could not count total tokens: {str(e)}")
+            
         return prompt
 
     def _build_tree(self, path: Path, tree: Tree) -> None:
@@ -208,6 +192,16 @@ class CodeToPrompt:
             return False
 
     def get_token_count(self) -> int:
-        """Get the number of tokens in the generated prompt."""
-        prompt = self.generate_prompt()
-        return len(self.tokenizer.encode(prompt)) 
+        """Get the total number of tokens in the processed files."""
+        total_tokens = 0
+        for file_path, content in self.processed_files.items():
+            try:
+                # Try to encode the content
+                tokens = self.tokenizer.encode(content)
+                total_tokens += len(tokens)
+            except Exception as e:
+                # Log the error but continue processing
+                print(f"Warning: Could not count tokens for {file_path}: {str(e)}")
+                # Skip this file's tokens but continue with others
+                continue
+        return total_tokens 
