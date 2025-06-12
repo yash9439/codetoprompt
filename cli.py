@@ -1,6 +1,7 @@
 import argparse
 import sys
 
+
 def main():
     """Main entry point for the CLI."""
     parser = argparse.ArgumentParser(
@@ -55,7 +56,9 @@ def main():
     print("│ Configuration:           │")
     print(f"│ Root Directory: {args.root_dir}        │")
     print(f"│ Include Patterns: {args.include.split(',')}  │")
-    print(f"│ Exclude Patterns: {args.exclude.split(',') if args.exclude else []}     │")
+    print(
+        f"│ Exclude Patterns: {args.exclude.split(',') if args.exclude else []}     │"
+    )
     print(f"│ Respect .gitignore: {not args.no_gitignore} │")
     print(f"│ Show Line Numbers: {not args.no_line_numbers}  │")
     print(f"│ Max Tokens: {args.max_tokens or 'Unlimited'}    │")
@@ -75,4 +78,4 @@ def main():
         )
     except Exception as e:
         print(f"Error: {e}")
-        sys.exit(1) 
+        sys.exit(1)

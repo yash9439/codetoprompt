@@ -8,11 +8,18 @@ from pathspec import PathSpec
 from pathspec.patterns import GitWildMatchPattern
 from rich.console import Console
 from rich.tree import Tree
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeElapsedColumn
+from rich.progress import (
+    Progress,
+    SpinnerColumn,
+    TextColumn,
+    BarColumn,
+    TimeElapsedColumn,
+)
 from concurrent.futures import ThreadPoolExecutor
 import threading
 import platform
 import subprocess
+
 
 class CodeToPrompt:
     def __init__(
@@ -31,19 +38,19 @@ class CodeToPrompt:
         self.show_line_numbers = show_line_numbers
         self.max_tokens = max_tokens
         self.console = Console()
-        
+
         # Initialize git repository if exists
         try:
             self.repo = pygit2.Repository(str(self.root_dir))
         except pygit2.GitError:
             self.repo = None
-            
+
         # Initialize tokenizer with special token handling
         self.tokenizer = tiktoken.get_encoding("cl100k_base")
         # Allow all special tokens to be processed as normal text
         self.tokenizer.allowed_special = set()
         self.tokenizer.disallowed_special = set()
-        
+
         # Initialize pathspec for gitignore
         if self.respect_gitignore and self.repo:
             gitignore_path = self.root_dir / ".gitignore"
@@ -54,7 +61,7 @@ class CodeToPrompt:
                 self.gitignore = None
         else:
             self.gitignore = None
-            
+
         # Initialize processed files dictionary
         self.processed_files = {}
 
@@ -66,37 +73,45 @@ class CodeToPrompt:
                 subprocess.run(["which", "xclip"], check=True, capture_output=True)
                 return True
             except subprocess.CalledProcessError:
-                self.console.print("\n[yellow]⚠️  Clipboard functionality is disabled because xclip is not installed.[/yellow]")
-                self.console.print("\n[yellow]To enable clipboard support, run this command:[/yellow]")
-                self.console.print("\n[bold cyan]sudo apt-get install xclip[/bold cyan]")
-                self.console.print("\n[yellow]After installing xclip, run codetoprompt again to use clipboard functionality.[/yellow]\n")
+                self.console.print(
+                    "\n[yellow]⚠️  Clipboard functionality is disabled because xclip is not installed.[/yellow]"
+                )
+                self.console.print(
+                    "\n[yellow]To enable clipboard support, run this command:[/yellow]"
+                )
+                self.console.print(
+                    "\n[bold cyan]sudo apt-get install xclip[/bold cyan]"
+                )
+                self.console.print(
+                    "\n[yellow]After installing xclip, run codetoprompt again to use clipboard functionality.[/yellow]\n"
+                )
                 return False
         return True
 
     def _should_include_file(self, file_path: Path) -> bool:
         """Check if a file should be included based on patterns and gitignore."""
         rel_path = file_path.relative_to(self.root_dir)
-        
+
         # Check include patterns
         if not any(rel_path.match(pattern) for pattern in self.include_patterns):
             return False
-            
+
         # Check exclude patterns
         if any(rel_path.match(pattern) for pattern in self.exclude_patterns):
             return False
-            
+
         # Check gitignore
         if self.gitignore and self.gitignore.match_file(str(rel_path)):
             return False
-            
+
         return True
 
     def _get_file_content(self, file_path: Path) -> str:
         """Read and format file content with optional line numbers."""
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 content = f.read()
-                
+
             if self.show_line_numbers:
                 lines = content.splitlines()
                 numbered_lines = [f"{i+1:4d} | {line}" for i, line in enumerate(lines)]
@@ -109,18 +124,20 @@ class CodeToPrompt:
         """Get git repository information."""
         if not self.repo:
             return ""
-            
+
         info = []
         try:
             head = self.repo.head
             info.append(f"Current branch: {head.name}")
             info.append(f"Latest commit: {head.target.hex}")
-            info.append(f"Author: {head.peel().author.name} <{head.peel().author.email}>")
+            info.append(
+                f"Author: {head.peel().author.name} <{head.peel().author.email}>"
+            )
             info.append(f"Date: {head.peel().author.time}")
             info.append(f"Message: {head.peel().message.strip()}")
         except Exception as e:
             info.append(f"Error getting git info: {str(e)}")
-            
+
         return "\n".join(info)
 
     def _process_file(self, file_path: Path) -> tuple:
@@ -137,7 +154,7 @@ class CodeToPrompt:
             for file_path in files:
                 rel_path, content = self._process_file(file_path)
                 self.processed_files[file_path] = content
-                
+
         prompt_parts = []
         for file_path, content in self.processed_files.items():
             try:
@@ -152,15 +169,17 @@ class CodeToPrompt:
                 continue
 
         prompt = "\n".join(prompt_parts)
-        
+
         # Try to get token count, but don't fail if it doesn't work
         try:
             token_count = self.get_token_count()
             if token_count > self.max_tokens:
-                print(f"Warning: Generated prompt exceeds token limit ({token_count} > {self.max_tokens})")
+                print(
+                    f"Warning: Generated prompt exceeds token limit ({token_count} > {self.max_tokens})"
+                )
         except Exception as e:
             print(f"Warning: Could not count total tokens: {str(e)}")
-            
+
         return prompt
 
     def _build_tree(self, path: Path, tree: Tree) -> None:
@@ -184,7 +203,7 @@ class CodeToPrompt:
     def save_to_file(self, output_path: str) -> None:
         """Save the generated prompt to a file."""
         prompt = self.generate_prompt()
-        with open(output_path, 'w', encoding='utf-8') as f:
+        with open(output_path, "w", encoding="utf-8") as f:
             f.write(prompt)
 
     def copy_to_clipboard(self) -> bool:
@@ -192,7 +211,7 @@ class CodeToPrompt:
         # Check clipboard requirements first, before any progress bars
         if not self._check_clipboard_requirements():
             return False
-            
+
         prompt = self.generate_prompt()
         try:
             pyperclip.copy(prompt)
@@ -209,7 +228,7 @@ class CodeToPrompt:
             for file_path in files:
                 rel_path, content = self._process_file(file_path)
                 self.processed_files[file_path] = content
-                
+
         total_tokens = 0
         for file_path, content in self.processed_files.items():
             try:
@@ -219,5 +238,5 @@ class CodeToPrompt:
             except Exception as e:
                 print(f"Warning: Could not count tokens for {file_path}: {str(e)}")
                 continue
-                
-        return total_tokens 
+
+        return total_tokens

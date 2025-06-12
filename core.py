@@ -5,6 +5,7 @@ import os
 import fnmatch
 import pathspec
 
+
 def process_files(
     root_dir: str,
     include_patterns: List[str] = None,
@@ -94,6 +95,7 @@ def process_files(
 
     return prompt
 
+
 def find_files(
     root_dir: str,
     include_patterns: List[str],
@@ -135,4 +137,4 @@ def find_files(
 
             files.append(file_path)
 
-    return sorted(files) 
+    return sorted(files)
