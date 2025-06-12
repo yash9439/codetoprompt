@@ -7,6 +7,7 @@ from typing import Dict, List, Optional, Set
 from pathspec import PathSpec
 from pathspec.patterns import GitWildMatchPattern
 
+
 def get_git_info(root_dir: Path) -> Optional[PathSpec]:
     """Get git ignore patterns from .gitignore file.
 
@@ -21,6 +22,7 @@ def get_git_info(root_dir: Path) -> Optional[PathSpec]:
         with open(gitignore_path) as f:
             return PathSpec.from_lines(GitWildMatchPattern, f)
     return None
+
 
 def build_file_tree(root_dir: Path, git_info: Optional[PathSpec] = None) -> List[Path]:
     """Build a list of files to process.
@@ -44,6 +46,7 @@ def build_file_tree(root_dir: Path, git_info: Optional[PathSpec] = None) -> List
             files.append(path)
     return sorted(files)
 
+
 def process_file(file_path: Path, show_line_numbers: bool = True) -> Optional[str]:
     """Process a single file and return its contents.
 
@@ -57,7 +60,7 @@ def process_file(file_path: Path, show_line_numbers: bool = True) -> Optional[st
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             content = f.read()
-        
+
         if not content.strip():
             return None
 
@@ -65,15 +68,16 @@ def process_file(file_path: Path, show_line_numbers: bool = True) -> Optional[st
             lines = content.splitlines()
             numbered_lines = [f"{i+1}: {line}" for i, line in enumerate(lines)]
             return "\n".join(numbered_lines)
-        
+
         return content
     except Exception:
         return None
 
+
 def generate_prompt(
     file_tree: List[Path],
     file_contents: Dict[Path, str],
-    git_info: Optional[PathSpec] = None
+    git_info: Optional[PathSpec] = None,
 ) -> str:
     """Generate the final prompt from processed files.
 
@@ -86,7 +90,7 @@ def generate_prompt(
         The generated prompt
     """
     prompt_parts = []
-    
+
     # Add gitignore info if available
     if git_info:
         prompt_parts.append("Files matching .gitignore patterns have been excluded.\n")
@@ -101,6 +105,7 @@ def generate_prompt(
             prompt_parts.append("\n```\n")
 
     return "\n".join(prompt_parts)
+
 
 def process_files(
     directory: Path,
@@ -147,4 +152,4 @@ def process_files(
         print(f"\nPrompt saved to: {output_file}")
     else:
         print("\nGenerated Prompt:")
-        print(prompt) 
+        print(prompt)
