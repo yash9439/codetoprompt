@@ -23,6 +23,15 @@ def main(args=None):
     console = Console()
     
     try:
+        # Validate directory
+        directory = Path(args.directory)
+        if not directory.exists():
+            console.print(f"[red]Error: Directory '{args.directory}' does not exist[/red]")
+            return 1
+        if not directory.is_dir():
+            console.print(f"[red]Error: '{args.directory}' is not a directory[/red]")
+            return 1
+            
         # Initialize processor
         processor = CodeToPrompt(
             args.directory,

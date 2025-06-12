@@ -45,15 +45,7 @@ def test_cli_with_patterns(temp_dir, capsys):
 
 def test_cli_invalid_directory(capsys):
     """Test CLI with invalid directory."""
-    # Mock sys.argv
-    import sys
-    sys.argv = ["codetoprompt", "/nonexistent/directory"]
-    
-    # Run CLI
-    result = main()
-    assert result == 1
-    
-    # Check error message
+    result = main(["/nonexistent/directory"])
     captured = capsys.readouterr()
-    assert "Error" in captured.out
-    assert "does not exist" in captured.out 
+    assert result == 1
+    assert "Error: Directory '/nonexistent/directory' does not exist" in captured.out 
