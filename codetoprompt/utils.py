@@ -99,23 +99,43 @@ def generate_prompt(
     from rich.tree import Tree
     from rich.console import Console
     console = Console()
+    
+    # Handle empty file tree
+    if not file_tree:
+        prompt_parts.append("No files found in the specified directory.")
+        return "\n".join(prompt_parts)
+        
     root_path = file_tree[0].parent.parent  # Get the actual root directory
     tree = Tree(f"📁 {root_path.name}")
     
-    def build_tree(path: Path, tree: Tree) -> None:
-        """Build a tree representation of the codebase."""
+    def build_tree(path: Path, tree: Tree, current_depth: int = 0, max_depth: int = 3) -> None:
+        """Build a tree representation of the codebase.
+        
+        Args:
+            path: Current directory path
+            tree: Current tree node
+            current_depth: Current depth in the tree
+            max_depth: Maximum depth to traverse
+        """
+        if current_depth >= max_depth:
+            tree.add("... (depth limit reached)")
+            return
+            
         # Sort items: directories first, then files
-        items = sorted(path.iterdir(), key=lambda x: (not x.is_dir(), x.name))
-        for item in items:
-            # Skip hidden files and directories
-            if any(part.startswith(".") for part in item.parts):
-                continue
-                
-            if item.is_dir():
-                branch = tree.add(f"📁 {item.name}")
-                build_tree(item, branch)
-            else:
-                tree.add(f"📄 {item.name}")
+        try:
+            items = sorted(path.iterdir(), key=lambda x: (not x.is_dir(), x.name))
+            for item in items:
+                # Skip hidden files and directories
+                if any(part.startswith(".") for part in item.parts):
+                    continue
+                    
+                if item.is_dir():
+                    branch = tree.add(f"📁 {item.name}")
+                    build_tree(item, branch, current_depth + 1, max_depth)
+                else:
+                    tree.add(f"📄 {item.name}")
+        except Exception as e:
+            tree.add(f"Error reading directory: {str(e)}")
 
     build_tree(root_path, tree)
     with console.capture() as capture:
