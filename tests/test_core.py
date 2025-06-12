@@ -40,6 +40,8 @@ def test_file_processing(temp_dir):
 def test_token_count(temp_dir):
     """Test token counting."""
     processor = CodeToPrompt(str(temp_dir))
+    # Generate prompt first to ensure files are processed
+    processor.generate_prompt()
     count = processor.get_token_count()
     assert count > 0  # Should have some tokens
 

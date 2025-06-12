@@ -203,6 +203,13 @@ class CodeToPrompt:
 
     def get_token_count(self) -> int:
         """Get the total number of tokens in the processed files."""
+        # Process files if not already processed
+        if not self.processed_files:
+            files = self._get_files()
+            for file_path in files:
+                rel_path, content = self._process_file(file_path)
+                self.processed_files[file_path] = content
+                
         total_tokens = 0
         for file_path, content in self.processed_files.items():
             try:
@@ -210,8 +217,7 @@ class CodeToPrompt:
                 tokens = self.tokenizer.encode(content)
                 total_tokens += len(tokens)
             except Exception as e:
-                # Log the error but continue processing
                 print(f"Warning: Could not count tokens for {file_path}: {str(e)}")
-                # Skip this file's tokens but continue with others
                 continue
+                
         return total_tokens 
