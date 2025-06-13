@@ -5,141 +5,51 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.4.0] - 2024-05-23
+## [0.4.1] - 2025-06-14
 
 ### Added
-- **Interactive Configuration Wizard**: Set persistent defaults with `codetoprompt config`.
-- **View/Reset Configuration**: View current settings with `codetoprompt config --show` and reset them with `codetoprompt config --reset`.
-- **Improved CLI & Help**: The CLI now has a clear and helpful main interface with detailed examples, making it much more intuitive.
-- **Persistent Config File**: User-specific settings are now stored in `~/.config/codetoprompt/config.toml`.
-
-### Changed
-- The default behavior for a bare `codetoprompt` command is now to show the help message instead of running on the current directory.
-
-## [0.3.0] - 2024-03-12
+- **Codebase Analysis Command**: `codetoprompt analyse` for in-depth project statistics.
+- **Enhanced Prompt Summary**: Now includes top files and file types by token count.
 
 ### Fixed
-- Fixed Tree Depth
+- **Strict `config` Command**: Prevents running the wizard with invalid flags.
+- **Improved UI Consistency**: Panels now correctly size to their content.
 
-## [0.2.9] - 2024-03-12
-
-### Fixed
-- Fixed Tree Relative Path Bug
-
-## [0.2.8] - 2024-03-12
-
-### Fixed
-- Fixed Pruned Tree Bug
-
-## [0.2.7] - 2024-03-12
+## [0.4.0] - 2025-06-13
 
 ### Added
-- Structure Tree Added
-
-## [0.2.6] - 2024-03-12
-
-### Changed
-- CLI Visual Changes
-
-## [0.2.5] - 2024-03-12
-
-### Fixed
-- Fixed prompt print issue
-- Added confirmation msg upon successful run
-
-## [0.2.4] - 2024-03-12
-
-### Fixed
-- Fixed process_files() function to properly handle copy_to_clipboard parameter
-- Added clipboard functionality to process_files() function
-- Added proper output handling for both file and stdout cases
-
-## [0.2.3] - 2024-03-12
+- Interactive configuration wizard via `codetoprompt config`.
+- View/Reset configuration with `config --show` and `config --reset`.
+- Persistent configuration file at `~/.config/codetoprompt/config.toml`.
 
 ### Changed
-- Added time elapsed column to progress bar
-- Set copy to clipboard to True by default
-- Improved progress bar visualization with bar column
+- Bare `codetoprompt` command now shows help instead of running.
 
-## [0.2.0] - 2024-03-12
+## [0.3.0] - 2025-06-12
 
-### Fixed
-- Added proper directory validation in CLI
-- Fixed error handling for non-existent directories
-- Updated CLI tests to match new behavior
-
-## [0.1.7] - 2024-03-12
-
-### Fixed
-- Fixed CLI argument handling in main function
-- Ensured files are processed before token counting
-- Removed clipboard functionality from tests
-- Simplified test cases for better reliability
-
-## [0.1.6] - 2024-03-12
-
-### Fixed
-- Fixed initialization of processed_files in CodeToPrompt class
-- Simplified test cases for better reliability
-- Improved error handling in file processing
-- Fixed token counting for processed files
-
-## [0.1.5] - 2025-06-12
-
-### Fixed
-- Fixed GitHub Actions workflow to properly install dev dependencies
-- Updated actions/checkout to v4
-- Fixed dependency installation command format
-
-## [0.1.4] - 2025-06-12
-
-### Fixed
-- Fixed license configuration in pyproject.toml to comply with PEP 621
-- Fixed pytest configuration and added pytest-cov dependency
-- Fixed GitHub Actions workflow issues
-
-## [0.1.3] - 2025-06-12
+### Added
+- **Project Structure Tree**: Adds a visual tree of the project structure to the prompt.
 
 ### Changed
-- Made token counting more robust by skipping problematic files instead of failing
-- Improved error handling in prompt generation to continue processing even if some files fail
-- Added warning messages for skipped files and token counting issues
-
-## [0.1.2] - 2025-06-12
+- **Improved CLI Output**: Enhanced progress bar and added more user feedback.
 
 ### Fixed
-- Fixed special token handling in tiktoken by properly configuring both `allowed_special` and `disallowed_special`
-- Ensures all special tokens are processed as normal text without errors
+- Multiple bugs related to tree generation, including depth and relative paths.
+- Improved clipboard and output file handling.
 
-## [0.1.1] - 2025-06-12
-
-### Fixed
-- Fixed special token handling in tiktoken
-- Fixed truncated lines in core.py
-- Fixed test cases for special token handling
+## [0.2.0] - 2025-06-12
 
 ### Changed
-- Improved error handling
-- Enhanced tokenizer configuration
-- Improved test coverage
-- Better CLI output formatting
+- **Robust File Processing**: Improved handling of special tokens, problematic files, and errors.
+- **Improved CLI**: Added directory validation and better argument handling.
+
+### Fixed
+- **Packaging & CI**: Corrected `pyproject.toml` and GitHub Actions workflow issues.
+- Multiple bugs in token counting and file processing logic.
 
 ## [0.1.0] - 2025-06-11
 
 ### Added
-- Initial release
-- Basic codebase to prompt conversion
-- File pattern filtering
-- Token counting
-- CLI interface
-
-### Fixed
-- Fixed special token handling in tiktoken to prevent errors with `<|endoftext|>` and similar tokens
-- Fixed truncated lines in core functionality
-- Fixed test cases to properly handle special tokens
-- Improved error handling and warning messages
-
-### Changed
-- Updated tokenizer configuration to handle all text content without restrictions
-- Enhanced test coverage for special token cases
-- Improved CLI output formatting
+- Initial release.
+- Core functionality for converting a codebase to a single prompt.
+- File filtering, token counting, and a command-line interface.

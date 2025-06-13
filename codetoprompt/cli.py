@@ -13,7 +13,7 @@ from .core import CodeToPrompt
 from .config import load_config, save_config, get_config_path, reset_config
 
 
-def create_parser() -> argparse.ArgumentParser:
+def create_main_parser() -> argparse.ArgumentParser:
     """Create the main argument parser for prompt generation."""
     config = load_config()
 
@@ -22,20 +22,12 @@ def create_parser() -> argparse.ArgumentParser:
         description="Converts a codebase into a single, context-rich prompt for LLMs.",
         epilog=(
             "EXAMPLES:\n"
-            "  # Process the current directory\n"
+            "  # Generate a prompt from the current directory\n"
             "  codetoprompt .\n\n"
-            "  # Process a specific directory and save to a file\n"
-            "  codetoprompt /path/to/project --output my_prompt.txt\n\n"
-            "  # Process and exclude test files, respecting .gitignore\n"
-            "  codetoprompt . --exclude \"tests/*,*.log\" --respect-gitignore\n\n"
-            "CONFIGURATION:\n"
-            "  To set your default preferences (e.g., to always respect .gitignore),\n"
-            "  run the interactive wizard:\n"
-            "    codetoprompt config\n\n"
-            "  To view your current saved defaults:\n"
-            "    codetoprompt config --show\n\n"
-            "  To reset all settings to their original defaults:\n"
-            "    codetoprompt config --reset"
+            "  # Run a codebase analysis\n"
+            "  codetoprompt analyse .\n\n"
+            "  # Configure default settings\n"
+            "  codetoprompt config\n"
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
@@ -43,6 +35,8 @@ def create_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "directory",
         metavar="PATH",
+        nargs="?",
+        default=None,
         help="The path to the codebase directory to process (e.g., '.')."
     )
     parser.add_argument("--output", help="Save the prompt to a file instead of copying to clipboard.")
@@ -51,6 +45,7 @@ def create_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-tokens", type=int, default=config.get("max_tokens"), help="Warn if token count exceeds this limit.")
     parser.add_argument("--tree-depth", type=int, default=config.get("tree_depth"), help="Maximum depth for the project structure tree.")
 
+    # Add boolean flags with defaults from config
     rg_group = parser.add_mutually_exclusive_group()
     rg_group.add_argument("--respect-gitignore", action="store_true", dest="respect_gitignore", default=None, help="Respect .gitignore rules (overrides config).")
     rg_group.add_argument("--no-respect-gitignore", action="store_false", dest="respect_gitignore", help="Do not respect .gitignore rules (overrides config).")
@@ -62,27 +57,65 @@ def create_parser() -> argparse.ArgumentParser:
     ct_group = parser.add_mutually_exclusive_group()
     ct_group.add_argument("--count-tokens", action="store_true", dest="count_tokens", default=None, help="Count tokens in the prompt (overrides config).")
     ct_group.add_argument("--no-count-tokens", action="store_false", dest="count_tokens", help="Do not count tokens (improves speed, overrides config).")
-
+    
     parser.set_defaults(
-        respect_gitignore=config["respect_gitignore"],
-        show_line_numbers=config["show_line_numbers"],
-        count_tokens=config["count_tokens"],
+        respect_gitignore=config.get("respect_gitignore", True),
+        show_line_numbers=config.get("show_line_numbers", False),
+        count_tokens=config.get("count_tokens", True),
     )
 
     return parser
 
+def create_analyse_parser() -> argparse.ArgumentParser:
+    """Create a parser for the 'analyse' command."""
+    config = load_config()
+    parser = argparse.ArgumentParser(
+        prog="codetoprompt analyse",
+        description="Analyzes a codebase and provides statistics on file types, sizes, and token counts.",
+    )
+    parser.add_argument("directory", metavar="PATH", help="The path to the codebase directory to analyze.")
+    parser.add_argument("--include", help="Comma-separated glob patterns of files to include.")
+    parser.add_argument("--exclude", help="Comma-separated glob patterns of files to exclude.")
+    parser.add_argument("--top-n", type=int, default=10, help="Number of items to show in top lists.")
+    
+    rg_group = parser.add_mutually_exclusive_group()
+    rg_group.add_argument("--respect-gitignore", action="store_true", dest="respect_gitignore", default=None, help="Respect .gitignore rules (overrides config).")
+    rg_group.add_argument("--no-respect-gitignore", action="store_false", dest="respect_gitignore", help="Do not respect .gitignore rules (overrides config).")
 
-def run_config_logic(raw_args, console: Console):
-    """Handle the 'config' command and its flags."""
-    if "--reset" in raw_args:
+    parser.set_defaults(respect_gitignore=config.get("respect_gitignore", True))
+    return parser
+
+
+def run_config_logic(raw_args: list, console: Console):
+    """Handle the 'config' command and its flags with strict validation."""
+    config_args = raw_args[1:]  # Get args after 'config'
+
+    # Case: 'codetoprompt config' (no flags) -> run wizard
+    if not config_args:
+        run_config_wizard(console)
+        return 0
+
+    # Case: More than one argument is not allowed
+    if len(config_args) > 1:
+        console.print(f"[red]Error: Too many arguments for 'config' command.[/red]")
+        console.print("\nUsage: codetoprompt config [--show | --reset]")
+        return 1
+    
+    # Case: One argument/flag
+    flag = config_args[0]
+    if flag == "--show":
+        show_current_config(console)
+    elif flag == "--reset":
         if reset_config():
             console.print("[green]✓ Configuration has been reset to defaults.[/green]")
         else:
             console.print("[yellow]No configuration file found. Already using defaults.[/yellow]")
-    elif "--show" in raw_args:
-        show_current_config(console)
     else:
-        run_config_wizard(console)
+        # Any other flag is an error
+        console.print(f"[red]Error: Unknown argument for 'config' command: '{flag}'[/red]")
+        console.print("\nUsage: codetoprompt config [--show | --reset]")
+        return 1
+    
     return 0
 
 
@@ -109,7 +142,7 @@ def run_config_wizard(console: Console):
     """Interactive wizard to set default configuration."""
     console.print(Panel.fit("[bold cyan]CodeToPrompt Configuration Wizard[/bold cyan]", border_style="blue"))
     console.print("Set your preferred defaults. Press Enter to keep the current value.")
-
+    # ... (rest of the wizard is unchanged) ...
     current_config = load_config()
     new_config = {}
 
@@ -147,6 +180,11 @@ def run_config_wizard(console: Console):
 
 def run_prompt_generation(args: argparse.Namespace, console: Console):
     """The main logic for generating a prompt."""
+    if not args.directory:
+        console.print("[red]Error:[/red] A path to a directory is required for prompt generation.")
+        create_main_parser().print_help()
+        return 1
+
     config = load_config()
     include_patterns = [p.strip() for p in args.include.split(',')] if args.include else config["include_patterns"]
     exclude_patterns = [p.strip() for p in args.exclude.split(',')] if args.exclude else config["exclude_patterns"]
@@ -154,11 +192,11 @@ def run_prompt_generation(args: argparse.Namespace, console: Console):
     try:
         directory = validate_directory(args.directory)
         display_config = {
-            "directory": directory, "include_patterns": include_patterns, "exclude_patterns": exclude_patterns,
-            "respect_gitignore": args.respect_gitignore, "show_line_numbers": args.show_line_numbers,
-            "no_count_tokens": not args.count_tokens, "max_tokens": args.max_tokens, "tree_depth": args.tree_depth,
+            "Root Directory": str(directory), "Include Patterns": include_patterns or ['*'], "Exclude Patterns": exclude_patterns or [],
+            "Respect .gitignore": args.respect_gitignore, "Show Line Numbers": args.show_line_numbers,
+            "Count Tokens": args.count_tokens, "Max Tokens": args.max_tokens or "Unlimited", "Tree Depth": args.tree_depth,
         }
-        show_config_panel(console, display_config)
+        show_config_panel(console, display_config, "CodeToPrompt")
 
         processor = CodeToPrompt(
             root_dir=str(directory), include_patterns=include_patterns, exclude_patterns=exclude_patterns,
@@ -168,24 +206,88 @@ def run_prompt_generation(args: argparse.Namespace, console: Console):
 
         with Progress(
             SpinnerColumn(), TextColumn("[progress.description]{task.description}"),
-            BarColumn(), TimeElapsedColumn(), console=console,
+            BarColumn(), TimeElapsedColumn(), console=console, transient=True,
         ) as progress:
-            task = progress.add_task("Processing files...", total=None)
-            processor.generate_prompt(progress)
-            token_count_val = processor.get_token_count() if args.count_tokens else None
+            prompt = processor.generate_prompt(progress)
 
-            clipboard_success = False
-            if args.output:
-                processor.save_to_file(args.output)
-            else:
-                 clipboard_success = processor.copy_to_clipboard()
-            progress.update(task, completed=True)
-
-        show_summary_panel(console, processor, token_count_val, args.output, clipboard_success)
+        clipboard_success = False
+        if args.output:
+            processor.save_to_file(args.output)
+        else:
+            clipboard_success = processor.copy_to_clipboard()
+        
+        show_summary_panel(console, processor, args.count_tokens, args.output, clipboard_success)
         return 0
     except Exception as e:
         console.print(f"[red]Error:[/red] {e}")
         return 1
+
+def run_analysis(args: argparse.Namespace, console: Console):
+    """The main logic for analyzing a codebase."""
+    config = load_config()
+    include_patterns = [p.strip() for p in args.include.split(',')] if args.include else config["include_patterns"]
+    exclude_patterns = [p.strip() for p in args.exclude.split(',')] if args.exclude else config["exclude_patterns"]
+
+    try:
+        directory = validate_directory(args.directory)
+        display_config = {
+            "Root Directory": str(directory), "Include Patterns": include_patterns or ['*'], "Exclude Patterns": exclude_patterns or [],
+            "Respect .gitignore": args.respect_gitignore,
+        }
+        show_config_panel(console, display_config, "Codebase Analysis")
+
+        processor = CodeToPrompt(
+            root_dir=str(directory), include_patterns=include_patterns, exclude_patterns=exclude_patterns,
+            respect_gitignore=args.respect_gitignore,
+        )
+
+        with Progress(
+            SpinnerColumn(), TextColumn("[progress.description]{task.description}"),
+            BarColumn(), TimeElapsedColumn(), console=console, transient=True,
+        ) as progress:
+            analysis_data = processor.analyze(progress, top_n=args.top_n)
+
+        # Print overall summary
+        summary = analysis_data["overall"]
+        summary_panel = Panel.fit(
+            f"[bold]Total Files:[/bold] {summary['file_count']:,}\n"
+            f"[bold]Total Lines:[/bold] {summary['total_lines']:,}\n"
+            f"[bold]Total Tokens:[/bold] {summary['total_tokens']:,}",
+            title="[cyan]Overall Project Summary[/cyan]", border_style="cyan"
+        )
+        console.print(summary_panel)
+
+        # Print analysis tables
+        if summary['file_count'] > 0:
+            print_analysis_tables(console, analysis_data, args.top_n)
+
+        return 0
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+        return 1
+
+def print_analysis_tables(console: Console, data: dict, top_n: int):
+    """Prints the various analysis tables using rich."""
+    # File Type Analysis
+    ext_table = Table(title=f"Analysis by File Type (Top {top_n})", header_style="bold magenta")
+    ext_table.add_column("Extension", style="green")
+    ext_table.add_column("Files", justify="right")
+    ext_table.add_column("Tokens", justify="right")
+    ext_table.add_column("Lines", justify="right")
+    ext_table.add_column("Avg Tokens/File", justify="right")
+    for row in data["by_extension"]:
+        avg = row['tokens'] / row['file_count']
+        ext_table.add_row(row['extension'], f"{row['file_count']:,}", f"{row['tokens']:,}", f"{row['lines']:,}", f"{avg:,.0f}")
+    console.print(ext_table)
+
+    # Top Files by Tokens
+    token_table = Table(title=f"Largest Files by Tokens (Top {top_n})", header_style="bold magenta")
+    token_table.add_column("File Path", style="cyan")
+    token_table.add_column("Tokens", justify="right")
+    token_table.add_column("Lines", justify="right")
+    for row in data["top_files_by_tokens"]:
+        token_table.add_row(str(row['path']), f"{row['tokens']:,}", f"{row['lines']:,}")
+    console.print(token_table)
 
 
 def validate_directory(directory_path: str) -> Path:
@@ -198,37 +300,44 @@ def validate_directory(directory_path: str) -> Path:
     return directory
 
 
-def show_config_panel(console: Console, config: dict):
+def show_config_panel(console: Console, config: dict, title: str):
     """Show configuration panel for a run."""
-    config_text = (
-        f"[bold]Configuration for this run:[/bold]\n"
-        f"Root Directory: {config['directory']}\n"
-        f"Include Patterns: {config['include_patterns'] or ['*']}\n"
-        f"Exclude Patterns: {config['exclude_patterns'] or []}\n"
-        f"Respect .gitignore: {config['respect_gitignore']}\n"
-        f"Show Line Numbers: {config['show_line_numbers']}\n"
-        f"Count Tokens: {not config['no_count_tokens']}\n"
-        f"Max Tokens: {config['max_tokens'] or 'Unlimited'}\n"
-        f"Tree Depth: {config['tree_depth']}"
-    )
-    panel = Panel.fit(config_text, title="CodeToPrompt", border_style="blue")
+    config_text = "[bold]Configuration for this run:[/bold]\n"
+    for key, value in config.items():
+        config_text += f"{key}: {value}\n"
+    panel = Panel.fit(config_text.strip(), title=title, border_style="blue")
     console.print(panel)
 
 
-def show_summary_panel(console: Console, processor: CodeToPrompt, token_count: int, output_file: str, clipboard_success: bool):
-    """Show summary panel."""
+def show_summary_panel(console: Console, processor: CodeToPrompt, count_tokens_enabled: bool, output_file: str, clipboard_success: bool):
+    """Show summary panel for prompt generation."""
     destination = "Clipboard" if not output_file else output_file
     if not output_file and not clipboard_success:
         destination = "stdout (clipboard copy failed)"
+    
+    token_count_str = f"{processor.get_token_count():,}" if count_tokens_enabled else 'Not counted'
 
     summary_text = (
         f"[bold]Summary:[/bold]\n"
         f"Files Processed: {len(processor.processed_files)}\n"
-        f"Total Tokens: {token_count if token_count is not None else 'Not counted'}\n"
+        f"Total Tokens: {token_count_str}\n"
         f"Output Destination: {destination}"
     )
     if not output_file:
          summary_text += f"\nCopied to Clipboard: {'Yes' if clipboard_success else 'No'}"
+
+    if count_tokens_enabled and processor.processed_files:
+        top_files = processor.get_top_files_by_tokens(3)
+        if top_files:
+            summary_text += "\n\n[bold]Top 3 Files by Tokens:[/bold]"
+            for file_info in top_files:
+                summary_text += f"\n  - {file_info['path']} ({file_info['tokens']:,} tokens)"
+
+        top_extensions = processor.get_top_extensions_by_tokens(5)
+        if top_extensions:
+            summary_text += "\n\n[bold]Top 5 Extensions by Tokens:[/bold]"
+            for ext_info in top_extensions:
+                summary_text += f"\n  - {ext_info['extension']} ({ext_info['tokens']:,} tokens)"
 
     panel = Panel.fit(summary_text, title="Processing Complete", border_style="green")
     console.print(panel)
@@ -238,13 +347,19 @@ def main(args=None):
     """Main CLI entry point."""
     raw_args = sys.argv[1:] if args is None else args
     console = Console()
-    parser = create_parser()
 
-    # Handle the 'config' command as a special case before parsing
-    if raw_args and raw_args[0] == 'config':
-        return run_config_logic(raw_args, console)
+    # Special handling for commands before main parsing
+    if raw_args:
+        command = raw_args[0]
+        if command == 'config':
+            return run_config_logic(raw_args, console)
+        if command == 'analyse':
+            parser = create_analyse_parser()
+            parsed_args = parser.parse_args(raw_args[1:])
+            return run_analysis(parsed_args, console)
 
-    # If no arguments are provided, show help and exit.
+    # Default to prompt generation
+    parser = create_main_parser()
     if not raw_args:
         parser.print_help()
         return 0

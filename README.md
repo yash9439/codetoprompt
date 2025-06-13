@@ -6,13 +6,14 @@ Convert your entire codebase into a single, context-rich prompt for Large Langua
 
 ## Features
 
-- **Comprehensive Project Context**: Automatically includes Git repository information (current branch, latest commit) and a visual project structure tree.
-- **Persistent Configuration**: Run a one-time interactive setup (`codetoprompt config`) to set your personal defaults for all options. No more repeating flags!
+- **Comprehensive Project Context**: Automatically includes Git repository information and a visual project structure tree.
+- **In-Depth Codebase Analysis**: Run `codetoprompt analyse` to get a detailed statistical report on your project's composition, including token counts by file type and largest files.
+- **Persistent Configuration**: Run a one-time interactive setup (`codetoprompt config`) to set your personal defaults for all options.
 - **Smart File Filtering**: Respects `.gitignore` rules by default and offers powerful include/exclude glob patterns to precisely select the files you need.
-- **Token-Aware**: Counts tokens to help you stay within your LLM's context window and warns you if you exceed your configured maximum.
+- **Token-Aware**: Counts tokens to help you stay within your LLM's context window and provides an informative summary with token-based insights.
 - **Developer-Friendly**: Copies the final prompt directly to your clipboard for immediate use, with a rich and informative CLI.
 - **Robust and Safe**: Safely reads files with fallback encodings and automatically skips binary files.
-- **Dual Interface**: Use it as a simple command-line tool or import it as a Python library into your own projects.
+- **Dual Interface**: Use it as a simple command-line tool or import it as a Python library.
 
 ## Installation
 
@@ -35,7 +36,7 @@ sudo pacman -S xclip
 
 ## Usage
 
-`codetoprompt` is designed to be intuitive. The main command takes a single argument: the path to the directory you want to process.
+`codetoprompt` is designed to be intuitive and has three main commands: `codetoprompt <path>` for prompt generation, `codetoprompt analyse <path>` for analysis, and `codetoprompt config` for settings.
 
 ### Generating a Prompt
 
@@ -45,9 +46,9 @@ This is the primary function. Simply point `codetoprompt` at a directory.
 codetoprompt .
 ```
 
-This will process the current directory using your saved default settings, copy the result to your clipboard, and show you a summary.
+This will process the current directory, copy the result to your clipboard, and show you a detailed summary.
 
-#### Sample Output
+#### Sample Prompt Generation Output
 
 ```text
 ╭───────────────── CodeToPrompt ──────────────────╮
@@ -58,75 +59,75 @@ This will process the current directory using your saved default settings, copy 
 │ Respect .gitignore: True                        │
 │ Show Line Numbers: False                        │
 │ Count Tokens: True                              │
-│ Max Tokens: 16000                               │
+│ Max Tokens: 16,000                              │
 │ Tree Depth: 3                                   │
 ╰─────────────────────────────────────────────────╯
 ✓ Processing files... ━━━━━━━━━━━━━━━━━━━━━━━━ 100%
-╭───────────── Processing Complete ─────────────╮
-│ Summary:                                      │
-│ Files Processed: 42                           │
-│ Total Tokens: 11258                           │
-│ Output Destination: Clipboard                 │
-│ Copied to Clipboard: Yes                      │
-╰───────────────────────────────────────────────╯
+╭──────────────── Processing Complete ───────────────╮
+│ Summary:                                           │
+│ Files Processed: 42                                │
+│ Total Tokens: 11,258                               │
+│ Output Destination: Clipboard                      │
+│ Copied to Clipboard: Yes                           │
+│                                                    │
+│ Top 3 Files by Tokens:                             │
+│   - codetoprompt/core.py (2,845 tokens)            │
+│   - codetoprompt/cli.py (2,101 tokens)             │
+│   - README.md (988 tokens)                         │
+│                                                    │
+│ Top 5 Extensions by Tokens:                        │
+│   - .py (8,432 tokens)                             │
+│   - .md (2,130 tokens)                             │
+│   - .yml (451 tokens)                              │
+│   - .toml (180 tokens)                             │
+│   - .gitignore (65 tokens)                         │
+╰────────────────────────────────────────────────────╯
 ```
 
-### Command-Line Help
+### Analyzing a Codebase
 
-For a full list of commands and arguments, use the `--help` flag.
+To get insights into your project's structure without generating a prompt, use the `analyse` command.
 
 ```shell
-codetoprompt --help
+codetoprompt analyse .
 ```
 
-#### Sample Output
+This provides a clean, statistical report on file counts, lines of code, and token distribution.
+
+#### Sample Analysis Output
 
 ```text
-usage: codetoprompt PATH [-h] [--output OUTPUT] [--include INCLUDE] [--exclude EXCLUDE] [--max-tokens MAX_TOKENS] [--tree-depth TREE_DEPTH]
-                         [--respect-gitignore | --no-respect-gitignore] [--show-line-numbers | --no-show-line-numbers]
-                         [--count-tokens | --no-count-tokens]
-
-Converts a codebase into a single, context-rich prompt for LLMs.
-
-positional arguments:
-  PATH                  The path to the codebase directory to process (e.g., '.').
-
-options:
-  -h, --help            show this help message and exit
-  --output OUTPUT       Save the prompt to a file instead of copying to clipboard.
-  --include INCLUDE     Comma-separated glob patterns of files to include.
-  --exclude EXCLUDE     Comma-separated glob patterns of files to exclude.
-  --max-tokens MAX_TOKENS
-                        Warn if token count exceeds this limit.
-  --tree-depth TREE_DEPTH
-                        Maximum depth for the project structure tree.
-  --respect-gitignore, --no-respect-gitignore
-                        Respect .gitignore rules (overrides config).
-  --show-line-numbers, --no-show-line-numbers
-                        Prepend line numbers to code (overrides config).
-  --count-tokens, --no-count-tokens
-                        Count tokens in the prompt (improves speed, overrides config).
-
-EXAMPLES:
-  # Process the current directory
-  codetoprompt .
-
-  # Process a specific directory and save to a file
-  codetoprompt /path/to/project --output my_prompt.txt
-
-  # Process and exclude test files, respecting .gitignore
-  codetoprompt . --exclude "tests/*,*.log" --respect-gitignore
-
-CONFIGURATION:
-  To set your default preferences (e.g., to always respect .gitignore),
-  run the interactive wizard:
-    codetoprompt config
-
-  To view your current saved defaults:
-    codetoprompt config --show
-
-  To reset all settings to their original defaults:
-    codetoprompt config --reset
+╭────────────────── Codebase Analysis ─────────────────╮
+│ Configuration for this run:                          │
+│ Root Directory: .                                    │
+│ Include Patterns: ['*']                              │
+│ Exclude Patterns: []                                 │
+│ Respect .gitignore: True                             │
+╰──────────────────────────────────────────────────────╯
+✓ Processing files... ━━━━━━━━━━━━━━━━━━━━━━━━ 100%
+╭── Overall Project Summary ───╮
+│ Total Files:  42             │
+│ Total Lines:  1,890          │
+│ Total Tokens: 11,258         │
+╰──────────────────────────────╯
+╭─────────── Analysis by File Type (Top 10) ──────────────╮
+│ Extension   │ Files │ Tokens │  Lines │ Avg Tokens/File │
+├─────────────┼───────┼────────┼────────┼─────────────────┤
+│ .py         │    12 │  8,432 │  1,200 │             702 │
+│ .md         │     3 │  2,130 │    450 │             710 │
+│ .yml        │     1 │    451 │     80 │             451 │
+│ .toml       │     2 │    180 │     60 │              90 │
+│ .gitignore  │     1 │     65 │     30 │              65 │
+──────────────────────────────────────────────────────────╯
+╭─── Largest Files by Tokens (Top 10) ────╮
+│ File Path              │ Tokens │ Lines │
+├────────────────────────┼────────┼───────┤
+│ codetoprompt/core.py   │  2,845 │   400 │
+│ codetoprompt/cli.py    │  2,101 │   350 │
+│ README.md              │    988 │   200 │
+│ CHANGELOG.md           │    850 │   180 │
+│ pyproject.toml         │    110 │    40 │
+╰─────────────────────────────────────────╯
 ```
 
 ### Configuration Management
@@ -141,24 +142,6 @@ Run the interactive wizard to set your personal defaults. This is a one-time set
 codetoprompt config
 ```
 
-##### Sample Session
-
-```text
-╭───────── CodeToPrompt Configuration Wizard ─────────╮
-│ Set your preferred defaults. Press Enter to keep the│
-│                  current value.                     │
-╰─────────────────────────────────────────────────────╯
-> Respect .gitignore files by default? [Y/n]: Y
-> Show line numbers by default? [y/N]: N
-> Count tokens by default (can be slow)? [Y/n]: Y
-> Default directory tree depth? [3]: 5
-> Default maximum token warning limit (0 or Enter for none)? [0]: 16000
-> Default include patterns (comma-separated, Enter for all) []: *.py, *.md, Dockerfile
-> Default exclude patterns (comma-separated) []: tests/*, .venv/*, node_modules/*
-
-✓ Configuration saved to: /home/user/.config/codetoprompt/config.toml
-```
-
 #### Viewing Your Defaults (`codetoprompt config --show`)
 
 To see what your current saved settings are, use the `--show` flag.
@@ -167,34 +150,12 @@ To see what your current saved settings are, use the `--show` flag.
 codetoprompt config --show
 ```
 
-##### Sample Output
-
-```text
-╭─────────────── Current CodeToPrompt Defaults ───────────────╮
-│ Setting              │ Value                                │
-├──────────────────────┼──────────────────────────────────────┤
-│ Respect .gitignore   │ True                                 │
-│ Show Line Numbers    │ False                                │
-│ Count Tokens         │ True                                 │
-│ Tree Depth           │ 5                                    │
-│ Max Tokens Warning   │ 16000                                │
-│ Include Patterns     │ ['*.py', '*.md', 'Dockerfile']        │
-│ Exclude Patterns     │ ['tests/*', '.venv/*', 'node_mod..'] │
-╰─────────────────────────────────────────────────────────────╯
-Config file location: /home/user/.config/codetoprompt/config.toml
-```
-
 #### Resetting Your Defaults (`codetoprompt config --reset`)
 
 If you want to clear your custom settings and return to the original defaults, use the `--reset` flag.
 
 ```shell
 codetoprompt config --reset
-```
-
-##### Sample Output
-```text
-✓ Configuration has been reset to defaults.
 ```
 
 ### Python API
@@ -223,13 +184,7 @@ print("Generated prompt!")
 processor.save_to_file("prompt.txt")
 print("Saved prompt to prompt.txt")
 
-# 3. Copy the prompt to the clipboard
-if processor.copy_to_clipboard():
-    print("Copied to clipboard successfully.")
-else:
-    print("Could not copy to clipboard. Check dependencies.")
-
-# 4. Get statistics about the generated prompt
+# 3. Get statistics about the generated prompt
 stats = processor.get_stats()
 print(f"\n--- Stats ---")
 print(f"Total files processed: {stats['files_processed']}")

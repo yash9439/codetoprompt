@@ -1,64 +1,115 @@
 """Tests for the core functionality of codetoprompt."""
 
-import os
-import tempfile
-from pathlib import Path
-
 import pytest
+from pathlib import Path
 from codetoprompt.core import CodeToPrompt
 
-
+# A more complex project structure for thorough testing
 @pytest.fixture
-def temp_dir(tmp_path):
-    """Create a temporary directory with test files."""
-    # Create test files
-    test1 = tmp_path / "test1.py"
-    test1.write_text("print('Hello, World!')")
+def project_dir(tmp_path):
+    """Create a temporary directory with a complex project structure for testing."""
+    root = tmp_path / "test_project"
+    root.mkdir()
 
-    test2 = tmp_path / "test2.py"
-    test2.write_text("def test():\n    pass")
+    # Create files with varied content and extensions
+    (root / "main.py").write_text("import utils\n\nprint('main')\n" * 10)  # 30 lines
+    (root / "utils.py").write_text("def helper():\n    pass\n" * 5)  # 10 lines
+    (root / "README.md").write_text("# Test Project\n" * 3)  # 3 lines
 
-    return tmp_path
+    data_dir = root / "data"
+    data_dir.mkdir()
+    (data_dir / "config.json").write_text('{"key": "value"}')
+    (data_dir / "users.csv").write_text('id,name\n1,test')
+    (data_dir / "binary.dat").write_text(b'\x00\x01\x02\x03'.decode('latin-1'))  # Simulate binary
 
+    tests_dir = root / "tests"
+    tests_dir.mkdir()
+    (tests_dir / "test_main.py").write_text("def test_main():\n    assert True")
 
-def test_initialization(temp_dir):
-    """Test basic initialization."""
-    processor = CodeToPrompt(str(temp_dir))
-    assert processor.root_dir == temp_dir
+    # Hidden files and folders
+    (root / ".env").write_text("SECRET=KEY")
+    (root / ".cache").mkdir()
+    (root / ".cache" / "cachefile").write_text("cached")
+
+    # Gitignore file
+    (root / ".gitignore").write_text("*.csv\n.env\n.cache/\n")
+
+    return root
+
+def test_initialization(project_dir):
+    """Test that the CodeToPrompt class initializes correctly."""
+    processor = CodeToPrompt(str(project_dir))
+    assert processor.root_dir == project_dir.resolve()
     assert processor.include_patterns == ["*"]
     assert processor.exclude_patterns == []
     assert processor.show_line_numbers is True
 
-
-def test_file_processing(temp_dir):
-    """Test file processing."""
-    processor = CodeToPrompt(str(temp_dir))
-    prompt = processor.generate_prompt()
-
-    # Check if both test files are included
-    assert "test1.py" in prompt
-    assert "test2.py" in prompt
-    assert "print('Hello, World!')" in prompt
-    assert "def test():" in prompt
-
-
-def test_token_count(temp_dir):
-    """Test token counting."""
-    processor = CodeToPrompt(str(temp_dir))
-    # Generate prompt first to ensure files are processed
+def test_file_processing_default(project_dir):
+    """Test default file processing (respect .gitignore, include all)."""
+    processor = CodeToPrompt(str(project_dir), respect_gitignore=True)
     processor.generate_prompt()
-    count = processor.get_token_count()
-    assert count > 0  # Should have some tokens
+    
+    processed_paths = {str(p.relative_to(project_dir)) for p in processor.processed_files.keys()}
+    
+    # Should be included
+    assert "main.py" in processed_paths
+    assert "README.md" in processed_paths
+    assert "tests/test_main.py" in processed_paths
+    assert "data/config.json" in processed_paths
+    
+    # Should be excluded by .gitignore
+    assert "data/users.csv" not in processed_paths
+    assert ".env" not in processed_paths
+    assert ".cache/cachefile" not in processed_paths
 
+def test_filtering_include(project_dir):
+    """Test include glob patterns."""
+    processor = CodeToPrompt(str(project_dir), include_patterns=["*.md"], respect_gitignore=False)
+    processor.generate_prompt()
+    processed_paths = {str(p.relative_to(project_dir)) for p in processor.processed_files.keys()}
+    
+    assert processed_paths == {"README.md"}
 
-def test_save_to_file(temp_dir):
-    """Test saving prompt to file."""
-    processor = CodeToPrompt(str(temp_dir))
-    output_file = temp_dir / "output.txt"
-    processor.save_to_file(str(output_file))
+def test_filtering_exclude(project_dir):
+    """Test exclude glob patterns."""
+    processor = CodeToPrompt(str(project_dir), exclude_patterns=["tests/*"], respect_gitignore=False)
+    processor.generate_prompt()
+    processed_paths = {str(p.relative_to(project_dir)) for p in processor.processed_files.keys()}
 
-    # Check if file was created and contains content
-    assert output_file.exists()
-    content = output_file.read_text()
-    assert "test1.py" in content
-    assert "test2.py" in content
+    assert "tests/test_main.py" not in processed_paths
+    assert "main.py" in processed_paths
+
+def test_no_respect_gitignore(project_dir):
+    """Test that gitignore rules are ignored when specified."""
+    processor = CodeToPrompt(str(project_dir), respect_gitignore=False)
+    processor.generate_prompt()
+    processed_paths = {str(p.relative_to(project_dir)) for p in processor.processed_files.keys()}
+
+    # All text files should now be included
+    assert "data/users.csv" in processed_paths
+    assert ".env" in processed_paths
+    # .cache is still skipped due to being a hidden directory
+    assert ".cache/cachefile" not in processed_paths
+
+def test_token_and_line_counts(project_dir):
+    """Test that token and line counts are calculated correctly."""
+    processor = CodeToPrompt(str(project_dir), respect_gitignore=False, include_patterns=["main.py"])
+    analysis = processor.analyze()
+
+    assert analysis["overall"]["file_count"] == 1
+    # main.py has 30 lines
+    assert analysis["overall"]["total_lines"] == 30
+    # Check that token count is reasonable
+    assert analysis["overall"]["total_tokens"] > 30
+
+def test_binary_file_skipping(project_dir):
+    """Ensure that binary files are skipped."""
+    # Add a known binary extension file
+    (project_dir / "image.png").write_text("not really a png")
+    
+    processor = CodeToPrompt(str(project_dir))
+    processor.generate_prompt()
+    processed_paths = {p.name for p in processor.processed_files.keys()}
+    
+    assert "binary.dat" not in processed_paths
+    assert "image.png" not in processed_paths
