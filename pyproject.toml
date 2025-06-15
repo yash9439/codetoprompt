@@ -4,16 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "codetoprompt"
-version = "0.5.0"
+version = "0.5.1"
 description = "Convert your codebase into a single LLM prompt"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [
 { name = "Yash Bhaskar", email = "yash9439@gmail.com" }
 ]
 classifiers = [
-"Programming Language :: Python :: 3.8",
 "Programming Language :: Python :: 3.9",
 "Programming Language :: Python :: 3.10",
 "Programming Language :: Python :: 3.11",
@@ -89,7 +88,7 @@ multi_line_output = 3
 line_length = 88
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.9"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true

@@ -7,6 +7,8 @@ Convert your entire codebase into a single, context-rich prompt for Large Langua
 ## Features
 
 - **Comprehensive Project Context**: Automatically includes Git repository information and a visual project structure tree.
+- **Flexible Output Formats**: Generate prompts in different formats using CLI flags: `--markdown` for standard Markdown code blocks and `--cxml` for a Claude-friendly XML structure.
+- **Intelligent Code Compression**: Use the `--compress` flag to dramatically reduce token count. It uses `tree-sitter` to parse code into a structural summary, preserving classes, functions, and signatures while omitting implementation details.
 - **In-Depth Codebase Analysis**: Run `codetoprompt analyse` to get a detailed statistical report on your project's composition, including token counts by file type and largest files.
 - **Persistent Configuration**: Run a one-time interactive setup (`codetoprompt config`) to set your personal defaults for all options.
 - **Smart File Filtering**: Respects `.gitignore` rules by default and offers powerful include/exclude glob patterns to precisely select the files you need.
@@ -47,6 +49,88 @@ codetoprompt .
 ```
 
 This will process the current directory, copy the result to your clipboard, and show you a detailed summary.
+
+#### Formatting the Output
+
+You can control the output format for better integration with different models or tools.
+
+- **Markdown (`-m`, `--markdown`)**: Outputs each file's content in a standard, clean Markdown code block. This is great for general-purpose use.
+
+  ```shell
+  codetoprompt . -m
+  ```
+
+  *Sample Markdown Output Snippet:*
+  ```markdown
+  codetoprompt/cli.py
+  ```python
+  #!/usr/bin/env python3
+
+  import argparse
+  import sys
+  # ... (rest of file content)
+  ```
+  ```
+
+- **Claude XML (`-c`, `--cxml`)**: Wraps each file's content in `<document>` XML tags, a format optimized for Anthropic's Claude models.
+
+  ```shell
+  codetoprompt . -c
+  ```
+
+  *Sample CXML Output Snippet:*
+  ```xml
+  <documents>
+    <document index="1">
+      <source>codetoprompt/cli.py</source>
+      <document_content>
+      #!/usr/bin/env python3
+
+      import argparse
+      # ... (rest of file content)
+      </document_content>
+    </document>
+    ...
+  </documents>
+  ```
+
+#### Compressing Code to Save Tokens
+
+When dealing with large codebases, the `--compress` flag is essential. It analyzes supported code files (Python, JS, TS, Java, C/C++, Rust) and generates a high-level summary instead of including the full code. This drastically reduces the token count while preserving the project's architecture.
+
+```shell
+codetoprompt . --compress
+```
+
+Files that cannot be compressed (like `README.md` or unsupported languages) are automatically included in their entirety.
+
+*Sample Compressed Output for a Python File:*
+```
+# File: codetoprompt/core.py
+# Language: python
+
+## Imports:
+- import platform
+- import subprocess
+- from pathlib import Path
+- ...
+
+## Classes:
+### class CodeToPrompt:
+    """Convert code files to prompt format."""
+    def __init__(self, root_dir, ...):
+        ...
+    def _get_compressor(self):
+        ...
+    def _get_git_repo(self):
+        ...
+    def generate_prompt(self, progress):
+        ...
+    def analyze(self, progress, top_n):
+        ...
+    def copy_to_clipboard(self):
+        ...
+```
 
 #### Sample Prompt Generation Output
 
@@ -136,7 +220,7 @@ This provides a clean, statistical report on file counts, lines of code, and tok
 
 #### Interactive Setup (`codetoprompt config`)
 
-Run the interactive wizard to set your personal defaults. This is a one-time setup.
+Run the interactive wizard to set your personal defaults, including your preferred output format and whether to enable compression by default. This is a one-time setup.
 
 ```shell
 codetoprompt config
@@ -173,7 +257,9 @@ processor = CodeToPrompt(
     respect_gitignore=True,
     show_line_numbers=True,
     max_tokens=8000,
-    tree_depth=3
+    tree_depth=3,
+    output_format="markdown",  # Or "cxml", "default"
+    compress=True              # Enable code compression
 )
 
 # 1. Generate the complete prompt string
