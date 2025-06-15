@@ -11,6 +11,7 @@ CONFIG_FILE = CONFIG_DIR / "config.toml"
 # Sensible defaults for a new user.
 DEFAULT_CONFIG = {
     "show_line_numbers": False,
+    "compress": False,
     "respect_gitignore": True,
     "count_tokens": True,
     "max_tokens": None,

@@ -32,6 +32,7 @@ def create_main_parser() -> argparse.ArgumentParser:
             "  codetoprompt config\n"
         ),
         formatter_class=argparse.RawTextHelpFormatter,
+        allow_abbrev=False,  # Disable abbreviated long options
     )
 
     parser.add_argument(
@@ -56,6 +57,7 @@ def create_main_parser() -> argparse.ArgumentParser:
     ln_group.add_argument("--show-line-numbers", action="store_true", dest="show_line_numbers", default=None, help="Prepend line numbers to code (overrides config).")
     ln_group.add_argument("--no-show-line-numbers", action="store_false", dest="show_line_numbers", help="Do not show line numbers (overrides config).")
 
+    parser.add_argument("--compress", action="store_true", dest="compress", default=None, help="Use code compression to reduce prompt size.")
     ct_group = parser.add_mutually_exclusive_group()
     ct_group.add_argument("--count-tokens", action="store_true", dest="count_tokens", default=None, help="Count tokens in the prompt (overrides config).")
     ct_group.add_argument("--no-count-tokens", action="store_false", dest="count_tokens", help="Do not count tokens (improves speed, overrides config).")
@@ -79,6 +81,7 @@ def create_main_parser() -> argparse.ArgumentParser:
     parser.set_defaults(
         respect_gitignore=config.get("respect_gitignore", True),
         show_line_numbers=config.get("show_line_numbers", False),
+        compress=config.get("compress", False),
         count_tokens=config.get("count_tokens", True),
         output_format=config.get("output_format", "default"),
     )
@@ -91,6 +94,7 @@ def create_analyse_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="codetoprompt analyse",
         description="Analyzes a codebase and provides statistics on file types, sizes, and token counts.",
+        allow_abbrev=False,  # Disable abbreviated long options
     )
     parser.add_argument("directory", metavar="PATH", help="The path to the codebase directory to analyze.")
     parser.add_argument("--include", help="Comma-separated glob patterns of files to include.")
@@ -147,6 +151,7 @@ def show_current_config(console: Console):
 
     table.add_row("Respect .gitignore", str(config['respect_gitignore']))
     table.add_row("Show Line Numbers", str(config['show_line_numbers']))
+    table.add_row("Code Compression", str(config['compress']))
     table.add_row("Count Tokens", str(config['count_tokens']))
     table.add_row("Tree Depth", str(config['tree_depth']))
     table.add_row("Output Format", config.get('output_format', 'default'))
@@ -171,6 +176,9 @@ def run_config_wizard(console: Console):
     )
     new_config["show_line_numbers"] = Confirm.ask(
         "Show line numbers by default?", default=current_config.get("show_line_numbers")
+    )
+    new_config["compress"] = Confirm.ask(
+        "Enable code compression by default (requires tree-sitter)?", default=current_config.get("compress")
     )
     new_config["count_tokens"] = Confirm.ask(
         "Count tokens by default (can be slow)?", default=current_config.get("count_tokens")
@@ -221,13 +229,13 @@ def run_prompt_generation(args: argparse.Namespace, console: Console):
         display_config = {
             "Root Directory": str(directory), "Include Patterns": include_patterns or ['*'], "Exclude Patterns": exclude_patterns or [],
             "Respect .gitignore": args.respect_gitignore, "Show Line Numbers": args.show_line_numbers,
-            "Count Tokens": args.count_tokens, "Max Tokens": args.max_tokens or "Unlimited", "Tree Depth": args.tree_depth,
+            "Count Tokens": args.count_tokens, "Compress Code": args.compress, "Max Tokens": args.max_tokens or "Unlimited", "Tree Depth": args.tree_depth,
             "Output Format": args.output_format,
         }
         show_config_panel(console, display_config, "CodeToPrompt")
 
         processor = CodeToPrompt(
-            root_dir=str(directory), include_patterns=include_patterns, exclude_patterns=exclude_patterns,
+            root_dir=str(directory), include_patterns=include_patterns, exclude_patterns=exclude_patterns, compress=args.compress,
             respect_gitignore=args.respect_gitignore, show_line_numbers=args.show_line_numbers,
             max_tokens=args.max_tokens, tree_depth=args.tree_depth,
             output_format=args.output_format
@@ -397,7 +405,7 @@ def main(args=None):
         parsed_args = parser.parse_args(raw_args)
         return run_prompt_generation(parsed_args, console)
     except SystemExit as e:
-        # This catches argparse's exit for -h/--help
+        # This catches argparse's exit for -h/--help or an error
         return e.code
     except Exception as e:
         console.print(f"[red]Error:[/red] An unexpected error occurred: {e}")

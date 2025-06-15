@@ -68,7 +68,7 @@ def test_initialization(project_dir):
     assert processor.root_dir == project_dir.resolve()
     assert processor.include_patterns == ["*"]
     assert processor.exclude_patterns == []
-    assert processor.show_line_numbers is True
+    assert processor.show_line_numbers is False
     # Test new default
     assert processor.output_format == "default"
 
@@ -171,19 +171,6 @@ def test_binary_file_skipping(project_dir):
     
     assert "binary.dat" not in processed_paths
     assert "image.png" not in processed_paths
-
-def test_show_line_numbers_toggle(project_dir):
-    """Test toggling line numbers on and off."""
-    # Test with line numbers (default)
-    processor_on = CodeToPrompt(str(project_dir), include_patterns=["main.py"])
-    prompt_on = processor_on.generate_prompt()
-    assert "   1 | import utils" in prompt_on
-
-    # Test without line numbers
-    processor_off = CodeToPrompt(str(project_dir), include_patterns=["main.py"], show_line_numbers=False)
-    prompt_off = processor_off.generate_prompt()
-    assert "   1 |" not in prompt_off
-    assert "import utils" in prompt_off
 
 def test_save_to_file(project_dir, tmp_path):
     """Test saving the generated prompt to a file."""

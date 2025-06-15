@@ -38,11 +38,13 @@ class CodeToPrompt:
         include_patterns: Optional[List[str]] = None,
         exclude_patterns: Optional[List[str]] = None,
         respect_gitignore: bool = True,
-        show_line_numbers: bool = True,
+        show_line_numbers: bool = False,
+        compress: bool = False,
         max_tokens: Optional[int] = None,
         tree_depth: int = 5,
         output_format: str = "default",
     ):
+        self.console = Console()
         self.root_dir = Path(root_dir).resolve()
         self.include_patterns = include_patterns or ["*"]
         self.exclude_patterns = exclude_patterns or []
@@ -51,24 +53,46 @@ class CodeToPrompt:
         self.max_tokens = max_tokens
         self.tree_depth = tree_depth
         self.output_format = output_format
-        self.console = Console()
+        self.compress = compress
         
-        # Initialize components
+        # --- CORRECTED INITIALIZATION ORDER ---
+        # 1. Initialize repo first, as other initializers might depend on it.
         self.repo = self._get_git_repo()
+        
+        # 2. Initialize other components.
+        self.compressor = self._get_compressor()
         self.tokenizer = self._get_tokenizer()
         self.gitignore_root: Optional[Path] = None
+        # Now this call is safe because self.repo exists.
         self.gitignore = self._get_gitignore_spec()
         
+        # 3. Initialize state variables.
         self.processed_files: Dict[Path, Dict[str, Any]] = {}
         self._generated_prompt: Optional[str] = None
         self._files_processed = False
         self.xml_index = 1
 
+
+    def _get_compressor(self):
+        """Get code compressor if enabled and available."""
+        if not self.compress:
+            return None
+        try:
+            # Note: The class name is FileAnalyzer in your provided compressor.py
+            from .compressor import FileAnalyzer
+            return FileAnalyzer()
+        except ImportError:
+            self.console.print("[yellow]Warning: 'tree-sitter-language-pack' is not installed. Compression is disabled.[/yellow]")
+            self.compress = False
+            return None
+        return None
+
     def _get_git_repo(self):
-        """Get git repository if available."""
+        """Get git repository if available. Returns None if not a repo or pygit2 is missing."""
         if not HAS_PYGIT2:
             return None
         try:
+            # This will gracefully fail if the directory is not a git repo
             return pygit2.Repository(str(self.root_dir))
         except pygit2.GitError:
             return None
@@ -88,6 +112,7 @@ class CodeToPrompt:
             return None
         
         base_path = self.root_dir
+        # This check is now safe because self.repo is guaranteed to exist (even if it's None)
         if self.repo and self.repo.workdir:
             base_path = Path(self.repo.workdir)
 
@@ -141,10 +166,21 @@ class CodeToPrompt:
         if progress:
             task = progress.add_task("Processing files...", total=len(files))
         
+        self.processed_files.clear()
         for file_path in files:
-            content = read_file_safely(file_path, self.show_line_numbers)
+            content: Optional[str] = None
+            is_compressed = False
+
+            if self.compressor:
+                compressed_output = self.compressor.generate_compressed_prompt(str(file_path))
+                if compressed_output and not compressed_output.startswith("Could not detect") and not compressed_output.startswith("No parser"):
+                    content = compressed_output
+                    is_compressed = True
+
+            if not content:  # Fallback to full content
+                content = read_file_safely(file_path, self.show_line_numbers)
+
             if content:
-                # Store stats for each file
                 file_token_count = 0
                 if self.tokenizer:
                     file_token_count = len(self.tokenizer.encode(content, disallowed_special=()))
@@ -154,7 +190,8 @@ class CodeToPrompt:
                 self.processed_files[file_path] = {
                     "content": content,
                     "tokens": file_token_count,
-                    "lines": len(content.splitlines())
+                    "lines": len(content.splitlines()),
+                    "is_compressed": is_compressed,
                 }
             if progress:
                 progress.update(task, advance=1)
@@ -240,17 +277,28 @@ class CodeToPrompt:
             parts.append("No files found matching the specified criteria.")
         else:
             sorted_files = sorted(self.processed_files.keys())
+            
             for file_path in sorted_files:
-                content = self.processed_files[file_path]["content"]
-                rel_path = file_path.relative_to(self.root_dir)
+                file_data = self.processed_files[file_path]
+                content = file_data["content"]
+                is_compressed = file_data.get("is_compressed", False)
 
+                if is_compressed:
+                    # The FileAnalyzer already formats its output with a file header, so just add it.
+                    parts.append(content)
+                    parts.append("")
+                    continue
+                
+                # --- Logic for non-compressed files ---
+                rel_path = file_path.relative_to(self.root_dir)
+                lang = EXT_TO_LANG.get(file_path.suffix.lstrip('.'), "")
+                
                 if self.output_format == "default":
                     parts.extend([
                         f"Relative File Path: {rel_path}",
-                        "", "```", content, "```", ""
+                        "", f"```{lang}", content, f"```", ""
                     ])
                 elif self.output_format == "markdown":
-                    lang = EXT_TO_LANG.get(file_path.suffix.lstrip('.'), "")
                     backticks = "```"
                     while backticks in content:
                         backticks += "`"
