@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+
+## [0.4.2] - 2025-06-15
+
+### Added
+- **Flexible Output Formats**: Generate prompts in different formats using new CLI flags.
+  - `--markdown` (`-m`): Outputs file content in fenced Markdown code blocks with language hints.
+  - `--cxml` (`-c`): Outputs file content in a Claude-friendly XML structure.
+
+### Changed
+- **Configuration Update**: The interactive wizard (`codetoprompt config`) and config file now support setting a default output format (`default`, `markdown`, or `cxml`).
+
 ## [0.4.1] - 2025-06-14
 
 ### Added

@@ -3,6 +3,34 @@
 from pathlib import Path
 from typing import Optional, Set
 
+# Map file extensions to language names for markdown code blocks
+EXT_TO_LANG = {
+    "py": "python",
+    "js": "javascript",
+    "ts": "typescript",
+    "java": "java",
+    "c": "c",
+    "cpp": "cpp",
+    "cs": "csharp",
+    "html": "html",
+    "css": "css",
+    "xml": "xml",
+    "json": "json",
+    "yaml": "yaml",
+    "yml": "yaml",
+    "md": "markdown",
+    "sh": "bash",
+    "rb": "ruby",
+    "go": "go",
+    "rs": "rust",
+    "php": "php",
+    "kt": "kotlin",
+    "swift": "swift",
+    "sql": "sql",
+    "toml": "toml",
+    "dockerfile": "dockerfile",
+}
+
 # Text file extensions
 TEXT_EXTENSIONS = {
     '.py', '.js', '.ts', '.jsx', '.tsx', '.html', '.css', '.scss', '.sass',

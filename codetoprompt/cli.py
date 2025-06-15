@@ -24,6 +24,8 @@ def create_main_parser() -> argparse.ArgumentParser:
             "EXAMPLES:\n"
             "  # Generate a prompt from the current directory\n"
             "  codetoprompt .\n\n"
+            "  # Generate a prompt in Markdown format\n"
+            "  codetoprompt . -m\n\n"
             "  # Run a codebase analysis\n"
             "  codetoprompt analyse .\n\n"
             "  # Configure default settings\n"
@@ -58,10 +60,27 @@ def create_main_parser() -> argparse.ArgumentParser:
     ct_group.add_argument("--count-tokens", action="store_true", dest="count_tokens", default=None, help="Count tokens in the prompt (overrides config).")
     ct_group.add_argument("--no-count-tokens", action="store_false", dest="count_tokens", help="Do not count tokens (improves speed, overrides config).")
     
+    format_group = parser.add_mutually_exclusive_group()
+    format_group.add_argument(
+        "-m", "--markdown",
+        action="store_const",
+        dest="output_format",
+        const="markdown",
+        help="Format output as Markdown with language hints."
+    )
+    format_group.add_argument(
+        "-c", "--cxml",
+        action="store_const",
+        dest="output_format",
+        const="cxml",
+        help="Format output as Claude-friendly XML."
+    )
+
     parser.set_defaults(
         respect_gitignore=config.get("respect_gitignore", True),
         show_line_numbers=config.get("show_line_numbers", False),
         count_tokens=config.get("count_tokens", True),
+        output_format=config.get("output_format", "default"),
     )
 
     return parser
@@ -130,6 +149,7 @@ def show_current_config(console: Console):
     table.add_row("Show Line Numbers", str(config['show_line_numbers']))
     table.add_row("Count Tokens", str(config['count_tokens']))
     table.add_row("Tree Depth", str(config['tree_depth']))
+    table.add_row("Output Format", config.get('output_format', 'default'))
     table.add_row("Max Tokens Warning", str(config.get('max_tokens') or "Unlimited"))
     table.add_row("Include Patterns", str(config.get('include_patterns') or "['*'] (All files)"))
     table.add_row("Exclude Patterns", str(config.get('exclude_patterns') or "[] (None)"))
@@ -173,6 +193,13 @@ def run_config_wizard(console: Console):
         default=", ".join(current_config.get("exclude_patterns") or [])
     )
     new_config["exclude_patterns"] = [p.strip() for p in exclude_str.split(',') if p.strip()] or []
+    
+    current_format = current_config.get("output_format", "default")
+    new_config["output_format"] = Prompt.ask(
+        "Default output format?",
+        choices=["default", "markdown", "cxml"],
+        default=current_format
+    )
 
     save_config(new_config)
     console.print(f"\n[green]✓ Configuration saved to:[/] {get_config_path()}")
@@ -195,6 +222,7 @@ def run_prompt_generation(args: argparse.Namespace, console: Console):
             "Root Directory": str(directory), "Include Patterns": include_patterns or ['*'], "Exclude Patterns": exclude_patterns or [],
             "Respect .gitignore": args.respect_gitignore, "Show Line Numbers": args.show_line_numbers,
             "Count Tokens": args.count_tokens, "Max Tokens": args.max_tokens or "Unlimited", "Tree Depth": args.tree_depth,
+            "Output Format": args.output_format,
         }
         show_config_panel(console, display_config, "CodeToPrompt")
 
@@ -202,6 +230,7 @@ def run_prompt_generation(args: argparse.Namespace, console: Console):
             root_dir=str(directory), include_patterns=include_patterns, exclude_patterns=exclude_patterns,
             respect_gitignore=args.respect_gitignore, show_line_numbers=args.show_line_numbers,
             max_tokens=args.max_tokens, tree_depth=args.tree_depth,
+            output_format=args.output_format
         )
 
         with Progress(

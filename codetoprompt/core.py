@@ -8,7 +8,7 @@ from rich.console import Console
 from rich.tree import Tree
 from rich.progress import Progress
 
-from .utils import is_text_file, should_skip_path, read_file_safely
+from .utils import is_text_file, should_skip_path, read_file_safely, EXT_TO_LANG
 
 try:
     import pygit2
@@ -41,6 +41,7 @@ class CodeToPrompt:
         show_line_numbers: bool = True,
         max_tokens: Optional[int] = None,
         tree_depth: int = 5,
+        output_format: str = "default",
     ):
         self.root_dir = Path(root_dir).resolve()
         self.include_patterns = include_patterns or ["*"]
@@ -49,6 +50,7 @@ class CodeToPrompt:
         self.show_line_numbers = show_line_numbers
         self.max_tokens = max_tokens
         self.tree_depth = tree_depth
+        self.output_format = output_format
         self.console = Console()
         
         # Initialize components
@@ -60,6 +62,7 @@ class CodeToPrompt:
         self.processed_files: Dict[Path, Dict[str, Any]] = {}
         self._generated_prompt: Optional[str] = None
         self._files_processed = False
+        self.xml_index = 1
 
     def _get_git_repo(self):
         """Get git repository if available."""
@@ -218,6 +221,7 @@ class CodeToPrompt:
             return self._generated_prompt
 
         self._process_files(progress)
+        self.xml_index = 1  # Reset index for each generation
 
         parts = []
 
@@ -229,6 +233,9 @@ class CodeToPrompt:
         # Add project structure
         parts.extend(["Project Structure:", self._build_tree_structure(), ""])
 
+        if self.output_format == "cxml":
+            parts.append("<documents>")
+
         if not self.processed_files:
             parts.append("No files found matching the specified criteria.")
         else:
@@ -236,12 +243,39 @@ class CodeToPrompt:
             for file_path in sorted_files:
                 content = self.processed_files[file_path]["content"]
                 rel_path = file_path.relative_to(self.root_dir)
-                parts.extend([
-                    f"Relative File Path: {rel_path}",
-                    "", "```", content, "```", ""
-                ])
 
-        self._generated_prompt = "\n".join(parts)
+                if self.output_format == "default":
+                    parts.extend([
+                        f"Relative File Path: {rel_path}",
+                        "", "```", content, "```", ""
+                    ])
+                elif self.output_format == "markdown":
+                    lang = EXT_TO_LANG.get(file_path.suffix.lstrip('.'), "")
+                    backticks = "```"
+                    while backticks in content:
+                        backticks += "`"
+                    parts.extend([
+                        str(rel_path),
+                        f"{backticks}{lang}",
+                        content,
+                        f"{backticks}",
+                        ""
+                    ])
+                elif self.output_format == "cxml":
+                    parts.extend([
+                        f'<document index="{self.xml_index}">',
+                        f"<source>{rel_path}</source>",
+                        "<document_content>",
+                        content,
+                        "</document_content>",
+                        "</document>",
+                    ])
+                    self.xml_index += 1
+
+        if self.output_format == "cxml":
+            parts.append("</documents>")
+        
+        self._generated_prompt = "\n".join(parts).strip()
         
         if self.max_tokens and self.get_token_count() > self.max_tokens:
             self.console.print(f"[yellow]Warning: Prompt exceeds token limit[/yellow]")
@@ -370,7 +404,7 @@ class CodeToPrompt:
         
         return {
             'files_processed': len(self.processed_files),
-            'total_characters': len(self._generated_prompt),
+            'total_characters': len(self._generated_prompt or ""),
             'total_tokens': self.get_token_count(),
-            'total_lines': self._generated_prompt.count('\n'),
+            'total_lines': (self._generated_prompt or "").count('\n'),
         }

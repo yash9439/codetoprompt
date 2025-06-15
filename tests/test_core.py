@@ -2,6 +2,7 @@
 
 import pytest
 from pathlib import Path
+from unittest.mock import patch, MagicMock
 from codetoprompt.core import CodeToPrompt
 
 # A more complex project structure for thorough testing
@@ -15,6 +16,8 @@ def project_dir(tmp_path):
     (root / "main.py").write_text("import utils\n\nprint('main')\n" * 10)  # 30 lines
     (root / "utils.py").write_text("def helper():\n    pass\n" * 5)  # 10 lines
     (root / "README.md").write_text("# Test Project\n" * 3)  # 3 lines
+    # Add a file with backticks to test markdown escaping
+    (root / "script.js").write_text("console.log(`hello ``` world`);")
 
     data_dir = root / "data"
     data_dir.mkdir()
@@ -25,6 +28,9 @@ def project_dir(tmp_path):
     tests_dir = root / "tests"
     tests_dir.mkdir()
     (tests_dir / "test_main.py").write_text("def test_main():\n    assert True")
+    sub_tests_dir = tests_dir / "sub"
+    sub_tests_dir.mkdir()
+    (sub_tests_dir / "sub_test.py").write_text("def test_sub(): pass")
 
     # Hidden files and folders
     (root / ".env").write_text("SECRET=KEY")
@@ -33,6 +39,26 @@ def project_dir(tmp_path):
 
     # Gitignore file
     (root / ".gitignore").write_text("*.csv\n.env\n.cache/\n")
+
+    # Initialize a git repository for testing git features
+    try:
+        import pygit2
+        repo = pygit2.init_repository(str(root))
+        index = repo.index
+        index.add_all()
+        index.write()
+        author = pygit2.Signature("Test Author", "test@example.com")
+        committer = pygit2.Signature("Test Committer", "test@example.com")
+        repo.create_commit(
+            "refs/heads/main",
+            author,
+            committer,
+            "Initial commit",
+            repo.index.write_tree(),
+            [],
+        )
+    except ImportError:
+        pass # pygit2 not installed, git tests will be skipped
 
     return root
 
@@ -43,6 +69,8 @@ def test_initialization(project_dir):
     assert processor.include_patterns == ["*"]
     assert processor.exclude_patterns == []
     assert processor.show_line_numbers is True
+    # Test new default
+    assert processor.output_format == "default"
 
 def test_file_processing_default(project_dir):
     """Test default file processing (respect .gitignore, include all)."""
@@ -56,11 +84,41 @@ def test_file_processing_default(project_dir):
     assert "README.md" in processed_paths
     assert "tests/test_main.py" in processed_paths
     assert "data/config.json" in processed_paths
+    assert "script.js" in processed_paths
     
     # Should be excluded by .gitignore
     assert "data/users.csv" not in processed_paths
     assert ".env" not in processed_paths
     assert ".cache/cachefile" not in processed_paths
+
+def test_output_formats(project_dir):
+    """Test that prompt generation works correctly for all output formats."""
+    # 1. Test "default" format
+    processor_default = CodeToPrompt(str(project_dir), include_patterns=["main.py"])
+    prompt_default = processor_default.generate_prompt()
+    assert "Relative File Path: main.py" in prompt_default
+    assert "```" in prompt_default
+    assert "print('main')" in prompt_default
+
+    # 2. Test "markdown" format
+    processor_md = CodeToPrompt(str(project_dir), output_format="markdown", include_patterns=["main.py", "script.js"])
+    prompt_md = processor_md.generate_prompt()
+    assert "main.py" in prompt_md
+    assert "script.js" in prompt_md
+    assert "```python" in prompt_md
+    assert "````javascript" in prompt_md # Test backtick escaping
+    assert "console.log(`hello ``` world`);" in prompt_md
+    assert "Relative File Path:" not in prompt_md
+
+    # 3. Test "cxml" format
+    processor_cxml = CodeToPrompt(str(project_dir), output_format="cxml", include_patterns=["main.py"])
+    prompt_cxml = processor_cxml.generate_prompt()
+    assert "<documents>" in prompt_cxml
+    assert '</documents>' in prompt_cxml
+    assert '<document index="1">' in prompt_cxml
+    assert "<source>main.py</source>" in prompt_cxml
+    assert "<document_content>" in prompt_cxml
+    assert "print('main')" in prompt_cxml
 
 def test_filtering_include(project_dir):
     """Test include glob patterns."""
@@ -113,3 +171,42 @@ def test_binary_file_skipping(project_dir):
     
     assert "binary.dat" not in processed_paths
     assert "image.png" not in processed_paths
+
+def test_show_line_numbers_toggle(project_dir):
+    """Test toggling line numbers on and off."""
+    # Test with line numbers (default)
+    processor_on = CodeToPrompt(str(project_dir), include_patterns=["main.py"])
+    prompt_on = processor_on.generate_prompt()
+    assert "   1 | import utils" in prompt_on
+
+    # Test without line numbers
+    processor_off = CodeToPrompt(str(project_dir), include_patterns=["main.py"], show_line_numbers=False)
+    prompt_off = processor_off.generate_prompt()
+    assert "   1 |" not in prompt_off
+    assert "import utils" in prompt_off
+
+def test_save_to_file(project_dir, tmp_path):
+    """Test saving the generated prompt to a file."""
+    output_file = tmp_path / "prompt.txt"
+    processor = CodeToPrompt(str(project_dir), include_patterns=["README.md"])
+    processor.save_to_file(str(output_file))
+    
+    assert output_file.exists()
+    content = output_file.read_text()
+    assert "Project Structure" in content
+    assert "# Test Project" in content
+
+def test_max_tokens_warning(project_dir, capsys):
+    """Test that a warning is printed if the token count exceeds max_tokens."""
+    processor = CodeToPrompt(str(project_dir), max_tokens=10)
+    processor.generate_prompt()
+    captured = capsys.readouterr()
+    assert "Warning: Prompt exceeds token limit" in captured.out
+
+def test_empty_directory_prompt(tmp_path):
+    """Test prompt generation for an empty directory."""
+    empty_dir = tmp_path / "empty"
+    empty_dir.mkdir()
+    processor = CodeToPrompt(str(empty_dir))
+    prompt = processor.generate_prompt()
+    assert "No files found matching the specified criteria." in prompt

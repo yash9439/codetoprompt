@@ -17,6 +17,7 @@ DEFAULT_CONFIG = {
     "include_patterns": [],
     "exclude_patterns": [],
     "tree_depth": 5,
+    "output_format": "default",
 }
 
 def get_config_path() -> Path:
