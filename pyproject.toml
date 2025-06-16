@@ -36,6 +36,16 @@ dependencies = [
 "tree-sitter-language-pack>=0.8.0",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "black",
+    "isort",
+    "mypy",
+    "flake8"
+]
+
 [project.urls]
 Homepage = "https://github.com/yash9439/codetoprompt"
 Documentation = "https://github.com/yash9439/codetoprompt#readme"
