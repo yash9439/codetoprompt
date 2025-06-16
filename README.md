@@ -73,7 +73,7 @@ Example output:
 ### Analyse Codebase
 
 ```bash
-codetoprompt <path> --analyse
+codetoprompt analyse <path>
 ```
 
 This will provide a detailed analysis of your codebase, including:
