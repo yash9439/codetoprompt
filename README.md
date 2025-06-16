@@ -3,39 +3,47 @@
 [![PyPI version](https://badge.fury.io/py/codetoprompt.svg)](https://badge.fury.io/py/codetoprompt)
 [![PyPI Downloads](https://static.pepy.tech/badge/codetoprompt)](https://pepy.tech/projects/codetoprompt)
 
-Convert your entire codebase into a single, context-rich prompt for Large Language Models (LLMs), perfectly formatted for direct use. It supports multiple output formats, code analysis, and intelligent file filtering.
+**CodeToPrompt** is a powerful command-line and Python tool that transforms your entire codebase into a single, context-rich prompt optimized for Large Language Models (LLMs). It supports compression, intelligent file filtering, multiple output formats (including Claude XML and Markdown), and in-depth analysis of your project.
 
-## Installation
+---
+
+## 🔧 Installation
+
+Install from PyPI:
 
 ```bash
 pip install codetoprompt
 ```
 
-For clipboard support on Linux, you may need to install a system dependency:
-
+For clipboard functionality on Linux, you may need to install a system dependency:
 ```bash
-# For Debian/Ubuntu
+# Debian/Ubuntu
 sudo apt-get install xclip
 
-# For Fedora
+# Fedora
 sudo dnf install xclip
 
-# For Arch Linux
+# Arch Linux
 sudo pacman -S xclip
 ```
-(Supports wl-clipboard on Wayland as well)
+(The tool also supports `wl-clipboard` on Wayland automatically.)
 
-## Basic Usage
+---
 
-### Generate a Prompt
+## 🚀 Basic Usage
+
+The two core commands are `codetoprompt` (or `ctp`) for generating prompts and `analyse` for inspecting your project.
+
+### Generate a Prompt from a Codebase
+
+This is the main command. It scans your project and copies a context-rich prompt to your clipboard.
 
 ```bash
 codetoprompt <path>
 ```
 
-This will generate a prompt from all files in the specified directory, respecting `.gitignore` rules by default.
+**Example Run:**
 
-Example output:
 ```
 ╭───────────────── CodeToPrompt ──────────────────╮
 │ Configuration for this run:                     │
@@ -70,18 +78,14 @@ Example output:
 ╰────────────────────────────────────────────────────╯
 ```
 
-### Analyse Codebase
+### Run Codebase Analysis
+
+Before generating a prompt, get a high-level overview of your project's composition and token count.
 
 ```bash
 codetoprompt analyse <path>
 ```
-
-This will provide a detailed analysis of your codebase, including:
-- Overall statistics (files, tokens, lines)
-- Statistics by file extension
-- Top files by token count
-
-Example output:
+**Example Analysis:**
 ```
 ╭────────────────── Codebase Analysis ─────────────────╮
 │ Configuration for this run:                          │
@@ -116,120 +120,82 @@ Example output:
 ╰─────────────────────────────────────────╯
 ```
 
-## Advanced Features
+---
 
-### Output Formats
+## 🧠 Advanced Features
 
-1. **Default Format** (default)
-   ```bash
-   codetoprompt <path>
-   ```
-   Output includes:
-   - Project structure
-   - File contents with relative paths
+### 📄 Output Formats
 
-   Example output:
-   ```
-   Project Structure:
-   .
-   ├── src/
-   │   ├── main.py
-   │   └── utils.py
-   └── tests/
-       └── test_main.py
+Tailor the output for different LLMs or use cases.
 
-   Relative File Path: src/main.py
-   ```python
-   def main():
-       print("Hello, World!")
+#### Default Format (`codetoprompt <path>`)
+Clean and simple, with a project tree and file contents.
+```
+Project Structure:
+.
+├── src/
+│   ├── main.py
+│   └── utils.py
+└── tests/
+    └── test_main.py
 
-   if __name__ == "__main__":
-       main()
-   ```
+Relative File Path: src/main.py
+```python
+def main():
+    print("Hello, World!")
 
-2. **Markdown Format** (-m, --markdown)
-   ```bash
-   codetoprompt <path> -m
-   # or
-   codetoprompt <path> --markdown
-   ```
-   Output is formatted as a markdown document with:
-   - Code blocks with language-specific syntax highlighting
-   - Project structure as markdown lists
+if __name__ == "__main__":
+    main()
+```
 
-   Example output:
-   ```markdown
-   Project Structure:
-   .
-   ├── src/
-   │   ├── main.py
-   │   └── utils.py
-   └── tests/
-       └── test_main.py
+#### Markdown Format (`--markdown` or `-m`)
+Formats the output as a single Markdown document with language-specific code blocks.
+```markdown
+Project Structure:
+.
+├── src/
+│   ├── main.py
+│   └── utils.py
+└── tests/
+    └── test_main.py
 
-   ## src/main.py
-   ```python
-   def main():
-       print("Hello, World!")
+## src/main.py
+```python
+def main():
+    print("Hello, World!")
 
-   if __name__ == "__main__":
-       main()
-   ```
+if __name__ == "__main__":
+    main()
+```
 
-3. **Claude XML Format** (-c, --cxml)
-   ```bash
-   codetoprompt <path> -c
-   # or
-   codetoprompt <path> --cxml
-   ```
-   Output is formatted as XML for Claude:
-   ```xml
-   <documents>
-     <document index="1">
-       <source>main.py</source>
-       <document_content>
-         // Code content here
-       </document_content>
-     </document>
-   </documents>
-   ```
+#### Claude XML Format (`--cxml` or `-c`)
+Wraps each file in XML tags, a format that Claude models handle well.
+```xml
+<documents>
+  <document index="1">
+    <source>main.py</source>
+    <document_content>
+def main():
+    print("Hello, World!")
 
-### File Filtering
+if __name__ == "__main__":
+    main()
+    </document_content>
+  </document>
+</documents>
+```
 
-1. **Include Specific Files**
-   ```bash
-   codetoprompt <path> --include "*.py" --include "src/**/*.js"
-   ```
+### 🧬 Smart Code Compression
 
-2. **Exclude Files**
-   ```bash
-   codetoprompt <path> --exclude "*.pyc" --exclude "node_modules/**"
-   ```
-
-3. **Gitignore Control**
-   ```bash
-   # Respect .gitignore (default)
-   codetoprompt <path> --respect-gitignore
-   
-   # Ignore .gitignore rules
-   codetoprompt <path> --no-respect-gitignore
-   ```
-
-### Code Compression
-
-When dealing with large codebases, the `--compress` flag is essential. It analyses supported code files (Python, JS, TS, Java, C/C++, Rust) and generates a high-level summary instead of including the full code. This drastically reduces the token count while preserving the project's architecture.
-
-The compression extracts:
-- Import statements
-- Function signatures with docstrings
-- Class definitions with methods
-- Key constants and type definitions
+For large codebases, the `--compress` flag is essential. It analyzes supported code files and generates a high-level summary instead of including the full code.
 
 ```bash
 codetoprompt <path> --compress
 ```
 
-Example output for a Python file with compression:
+**Supported Languages for Compression:** This feature currently analyzes and summarizes `Python`, `JavaScript`, `TypeScript`, `Java`, `C`, `C++`, and `Rust` files. Other files will be included in full.
+
+**Example Compressed Output for a Python File:**
 ```
 # File: codetoprompt/core.py
 # Language: python
@@ -256,191 +222,102 @@ Example output for a Python file with compression:
     def copy_to_clipboard(self):
         ...
 ```
+> **Automatic Data File Handling:** To further manage token count, `codetoprompt` automatically detects common data files (like `.csv`, `.json`, and `.jsonl`) and includes **only the first 5 lines**. This provides a sample of the data's structure without overwhelming the prompt. This behavior is automatic and does not require a special flag.
 
-> **Note on Large Data Files**: To further manage token count, `codetoprompt` automatically detects common data files (like `.csv`, `.json`) and includes only the first 5 lines. This provides a sample of the data's structure without overwhelming the prompt. This behavior is automatic and does not require a flag.
+### 🎛️ Command-Line Options
 
-### Output Options
+Here is the full list of options for the main `codetoprompt` command.
 
-1. **Save to File**
-   ```bash
-   codetoprompt <path> --output output.txt
-   ```
+| Option | Alias | Description |
+| :--- | :---: | :--- |
+| `--output <file>` | | Save the prompt to a file. **This overrides the default clipboard behavior.** |
+| `--include <patterns>` | | Comma-separated glob patterns for files to include (e.g., `"*.py,*.js"`). |
+| `--exclude <patterns>` | | Comma-separated glob patterns for files to exclude (e.g., `"*.pyc,dist/*"`). |
+| `--markdown` | `-m` | Format output as a single Markdown document. |
+| `--cxml` | `-c` | Format output using Claude-friendly XML tags. |
+| `--compress` | | Use smart code compression to summarize files and reduce tokens. |
+| `--show-line-numbers` | | Prepend line numbers to code. Use `--no-show-line-numbers` to disable. |
+| `--respect-gitignore` | | Respect `.gitignore` rules (default). Use `--no-respect-gitignore` to disable. |
+| `--max-tokens <num>` | | Warn if token count exceeds this limit. Does not truncate. |
+| `--tree-depth <num>` | | Set the maximum depth for the project structure tree. |
+| `--version` | `-v` | Display the installed version number. |
+| `--help` | `-h` | Show this help message and exit. |
 
-2. **Copy to Clipboard**
-   ```bash
-   codetoprompt <path> --clipboard
-   ```
 
-3. **Show Line Numbers**
-   ```bash
-   codetoprompt <path> --show-line-numbers
-   ```
+---
 
-### Token and Tree Settings
+## ⚙️ Configuration
 
-1. **Set Maximum Tokens**
-   ```bash
-   codetoprompt <path> --max-tokens 1000
-   ```
-   Note: This only provides a warning if the output exceeds the specified token count. It does not truncate or limit the output.
+Set your preferred defaults using the `config` command. Settings are saved in `~/.config/codetoprompt/config.toml`.
 
-2. **Tree Depth Control**
-   ```bash
-   codetoprompt <path> --tree-depth 3
-   ```
-   Note: This only affects the initial project structure tree display in the prompt. It does not limit the files processed.
-
-### Other CLI Options
-
-#### Version Check
-To display the current version number, use the `--version` or `-v` flag:
-
-```bash
-codetoprompt --version
-# or
-ctp -v
+#### Show Current Config (`codetoprompt config --show`)
+```
+╭───────────────── Current Configuration ────────────────╮
+│ show_line_numbers = false                              │
+│ compress = false                                       │
+│ respect_gitignore = true                               │
+│ count_tokens = true                                    │
+│ max_tokens = null                                      │
+│ include_patterns = []                                  │
+│ exclude_patterns = []                                  │
+│ tree_depth = 5                                         │
+│ output_format = "default"                              │
+╰───────────────────────────────────────────────────────╯
 ```
 
-#### Command Alias
-For convenience, `codetoprompt` can be invoked using the shorter alias `ctp`. The following commands are equivalent:
-```bash
-codetoprompt . --analyse
-ctp . --analyse
+#### Interactive Configuration Wizard (`codetoprompt config`)
+```
+╭───────────────── Configuration Wizard ────────────────╮
+│ Would you like to show line numbers by default? [y/N] │
+│ Would you like to compress code by default? [y/N]     │
+│ Would you like to respect .gitignore by default? [Y/n]│
+│ Would you like to count tokens by default? [Y/n]      │
+│ Set maximum tokens (press Enter for no limit):        │
+│ Set default tree depth [5]:                           │
+│ Choose default output format:                         │
+│   1) default                                          │
+│   2) markdown                                         │
+│   3) cxml                                             │
+│ Choice [1]:                                           │
+╰───────────────────────────────────────────────────────╯
 ```
 
-### Configuration
-
-The `config` command helps manage your settings:
-
-1. **Show Current Config**
-   ```bash
-   codetoprompt config --show
-   ```
-   Example output:
-   ```
-   ╭───────────────── Current Configuration ────────────────╮
-   │ show_line_numbers = false                              │
-   │ compress = false                                       │
-   │ respect_gitignore = true                               │
-   │ count_tokens = true                                    │
-   │ max_tokens = null                                      │
-   │ include_patterns = []                                  │
-   │ exclude_patterns = []                                  │
-   │ tree_depth = 5                                         │
-   │ output_format = "default"                              │
-   ╰───────────────────────────────────────────────────────╯
-   ```
-
-2. **Reset to Defaults**
-   ```bash
-   codetoprompt config --reset
-   ```
-   Example output:
-   ```
-   ╭───────────────── Configuration Reset ────────────────╮
-   │ Configuration has been reset to default values.       │
-   ╰──────────────────────────────────────────────────────╯
-   ```
-
-3. **Interactive Configuration**
-   ```bash
-   codetoprompt config
-   ```
-   Example output:
-   ```
-   ╭───────────────── Configuration Wizard ────────────────╮
-   │ Would you like to show line numbers by default? [y/N] │
-   │ Would you like to compress code by default? [y/N]     │
-   │ Would you like to respect .gitignore by default? [Y/n]│
-   │ Would you like to count tokens by default? [Y/n]      │
-   │ Set maximum tokens (press Enter for no limit):        │
-   │ Set default tree depth [5]:                           │
-   │ Choose default output format:                         │
-   │   1) default                                          │
-   │   2) markdown                                         │
-   │   3) cxml                                             │
-   │ Choice [1]:                                           │
-   ╰───────────────────────────────────────────────────────╯
-   ```
-
-## Configuration File
-
-Settings are stored in `~/.config/codetoprompt/config.toml`:
-
-```toml
-[settings]
-show_line_numbers = false
-compress = false
-respect_gitignore = true
-count_tokens = true
-max_tokens = null
-include_patterns = []
-exclude_patterns = []
-tree_depth = 5
-output_format = "default"
+#### Reset to Defaults (`codetoprompt config --reset`)
+```
+╭───────────────── Configuration Reset ────────────────╮
+│ Configuration has been reset to default values.       │
+╰──────────────────────────────────────────────────────╯
 ```
 
-## Python API
+---
 
-You can also use codetoprompt as a library in your Python projects for more programmatic control:
+## 🐍 Python API
+
+Use `codetoprompt` programmatically in your own Python scripts for maximum flexibility.
 
 ```python
 from codetoprompt import CodeToPrompt
 
-# Initialize with options
 ctp = CodeToPrompt(
     root_dir="path/to/project",
     include_patterns=["*.py"],
     exclude_patterns=["tests/*"],
-    respect_gitignore=True,
-    show_line_numbers=False,
-    compress=False,
-    max_tokens=None,
-    tree_depth=5,
-    output_format="default"
+    compress=True,
 )
 
-# Generate prompt
+# Generate a prompt string
 prompt = ctp.generate_prompt()
 
-# Analyse codebase
+# Get a detailed analysis dictionary
 analysis = ctp.analyse()
-
-# Get file contents
-files = ctp.get_files()
 ```
 
-## Examples
+---
 
-1. **Basic Usage with Analysis**
-   ```bash
-   codetoprompt /path/to/project --analyse
-   ```
+## 🤝 Contributing
 
-2. **Generate Markdown Documentation**
-   ```bash
-   codetoprompt /path/to/project -m --output docs.md
-   ```
+We welcome contributions! Please open a PR or issue to get started.
 
-3. **Create Claude-Compatible XML**
-   ```bash
-   codetoprompt /path/to/project -c --compress
-   ```
+## 📄 License
 
-4. **analyse Python Files Only**
-   ```bash
-   codetoprompt /path/to/project --include "*.py" --analyse
-   ```
-
-5. **Generate Prompt with Line Numbers**
-   ```bash
-   codetoprompt /path/to/project --show-line-numbers --output prompt.txt
-   ```
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License. See the `LICENSE` file for full details.
