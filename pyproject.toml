@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "codetoprompt"
-version = "0.5.6"
+version = "0.5.7"
 description = "Convert your codebase into a single LLM prompt"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -55,6 +55,7 @@ Changelog = "https://github.com/yash9439/codetoprompt/blob/main/CHANGELOG.md"
 
 [project.scripts]
 codetoprompt = "codetoprompt.cli:main"
+ctp = "codetoprompt.cli:main"
 
 [tool.setuptools.packages.find]
 exclude = ["tests*"]

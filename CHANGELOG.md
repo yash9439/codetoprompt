@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [0.5.7] - 2025-06-16
+
+### Update
+ **Code Compressor**: Modularization
+ 
+### Added
+ **CLI Alias**: The CLI can now be invoked with `ctp` as a shorter alias for `codetoprompt`.
+ **Version Flag**: Added a `--version` (and `-v`) flag to display the current version number (e.g., `codetoprompt --version` or `ctp -v`).
+
+
 ## [0.5.5] - 2025-06-15
 
 ### Update

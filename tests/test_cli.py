@@ -72,12 +72,15 @@ def test_cli_config_reset(capsys, mock_config_path):
 def test_cli_config_invalid_flag(capsys):
     """Test that 'config' command handles invalid flags correctly."""
     with patch("sys.argv", ["codetoprompt", "config", "--invalid-flag"]):
+        # Argparse exits with code 2 for unrecognized arguments.
+        # The refactored main() function catches the SystemExit and returns the code.
         return_code = main()
-
+    
+    assert return_code == 2
+    
+    # Argparse prints its error message to stderr.
     captured = capsys.readouterr()
-    assert return_code == 1
-    assert "Error: Unknown argument" in captured.out
-    assert "--invalid-flag" in captured.out
+    assert "unrecognized arguments: --invalid-flag" in captured.err
 
 def test_cli_config_show(capsys, mock_config_path):
     """Test the 'config --show' command."""
@@ -128,3 +131,24 @@ def test_cli_invalid_path_errors(capsys, path_arg):
         assert "does not exist" in captured.out
     else:
         assert "is not a directory" in captured.out
+
+@pytest.mark.parametrize("args", [
+    ["codetoprompt", "--version"],
+    ["codetoprompt", "-v"],
+    ["ctp", "--version"],
+    ["ctp", "-v"],
+    ["codetoprompt", "analyse", "--version"],
+    ["codetoprompt", "config", "--version"],
+])
+def test_cli_version_flag(capsys, args):
+    """Test that the --version flag works correctly and exits."""
+    from codetoprompt.version import __version__
+    
+    with patch("sys.argv", args):
+        # The main function should catch the SystemExit and return the exit code.
+        return_code = main()
+        assert return_code == 0
+    
+    captured = capsys.readouterr()
+    # Argparse's version action prints to stdout
+    assert __version__ in captured.out

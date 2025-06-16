@@ -11,14 +11,26 @@ from rich.table import Table
 
 from .core import CodeToPrompt
 from .config import load_config, save_config, get_config_path, reset_config
+from .version import __version__
 
+
+def create_base_parser() -> argparse.ArgumentParser:
+    """Creates a base parser with shared arguments like --version."""
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument(
+        "-v", "--version",
+        action="version",
+        version=f"%(prog)s {__version__}",
+        help="Show program's version number and exit."
+    )
+    return parser
 
 def create_main_parser() -> argparse.ArgumentParser:
     """Create the main argument parser for prompt generation."""
+    base_parser = create_base_parser()
     config = load_config()
 
     parser = argparse.ArgumentParser(
-        prog="codetoprompt",
         description="Converts a codebase into a single, context-rich prompt for LLMs.",
         epilog=(
             "EXAMPLES:\n"
@@ -33,6 +45,7 @@ def create_main_parser() -> argparse.ArgumentParser:
         ),
         formatter_class=argparse.RawTextHelpFormatter,
         allow_abbrev=False,  # Disable abbreviated long options
+        parents=[base_parser],
     )
 
     parser.add_argument(
@@ -90,10 +103,12 @@ def create_main_parser() -> argparse.ArgumentParser:
 
 def create_analyse_parser() -> argparse.ArgumentParser:
     """Create a parser for the 'analyse' command."""
+    base_parser = create_base_parser()
     config = load_config()
     parser = argparse.ArgumentParser(
         prog="codetoprompt analyse",
         description="Analyses a codebase and provides statistics on file types, sizes, and token counts.",
+        parents=[base_parser],
         allow_abbrev=False,  # Disable abbreviated long options
     )
     parser.add_argument("directory", metavar="PATH", help="The path to the codebase directory to analyse.")
@@ -109,36 +124,33 @@ def create_analyse_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def run_config_logic(raw_args: list, console: Console):
-    """Handle the 'config' command and its flags with strict validation."""
-    config_args = raw_args[1:]  # Get args after 'config'
+def create_config_parser() -> argparse.ArgumentParser:
+    """Create a parser for the 'config' command."""
+    base_parser = create_base_parser()
+    parser = argparse.ArgumentParser(
+        prog="codetoprompt config",
+        description="View, reset, or interactively configure default settings.",
+        parents=[base_parser],
+        allow_abbrev=False,
+    )
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--show", action="store_true", help="Show the current configuration.")
+    group.add_argument("--reset", action="store_true", help="Reset the configuration to defaults.")
+    return parser
 
-    # Case: 'codetoprompt config' (no flags) -> run wizard
-    if not config_args:
-        run_config_wizard(console)
-        return 0
 
-    # Case: More than one argument is not allowed
-    if len(config_args) > 1:
-        console.print(f"[red]Error: Too many arguments for 'config' command.[/red]")
-        console.print("\nUsage: codetoprompt config [--show | --reset]")
-        return 1
-    
-    # Case: One argument/flag
-    flag = config_args[0]
-    if flag == "--show":
+def run_config_command(args: argparse.Namespace, console: Console):
+    """Handle the 'config' command logic based on parsed arguments."""
+    if args.show:
         show_current_config(console)
-    elif flag == "--reset":
+    elif args.reset:
         if reset_config():
             console.print("[green]✓ Configuration has been reset to defaults.[/green]")
         else:
             console.print("[yellow]No configuration file found. Already using defaults.[/yellow]")
     else:
-        # Any other flag is an error
-        console.print(f"[red]Error: Unknown argument for 'config' command: '{flag}'[/red]")
-        console.print("\nUsage: codetoprompt config [--show | --reset]")
-        return 1
-    
+        # If no flags are provided, run the interactive wizard.
+        run_config_wizard(console)
     return 0
 
 
@@ -385,27 +397,30 @@ def main(args=None):
     raw_args = sys.argv[1:] if args is None else args
     console = Console()
 
-    # Special handling for commands before main parsing
-    if raw_args:
-        command = raw_args[0]
-        if command == 'config':
-            return run_config_logic(raw_args, console)
-        if command == 'analyse':
-            parser = create_analyse_parser()
-            parsed_args = parser.parse_args(raw_args[1:])
-            return run_analysis(parsed_args, console)
-
-    # Default to prompt generation
-    parser = create_main_parser()
-    if not raw_args:
-        parser.print_help()
-        return 0
-
     try:
+        # Special handling for subcommands
+        if raw_args:
+            command = raw_args[0]
+            if command == 'config':
+                parser = create_config_parser()
+                parsed_args = parser.parse_args(raw_args[1:])
+                return run_config_command(parsed_args, console)
+            if command == 'analyse':
+                parser = create_analyse_parser()
+                parsed_args = parser.parse_args(raw_args[1:])
+                return run_analysis(parsed_args, console)
+
+        # Default to prompt generation if no subcommand is found
+        parser = create_main_parser()
+        if not raw_args:
+            parser.print_help()
+            return 0
+        
         parsed_args = parser.parse_args(raw_args)
         return run_prompt_generation(parsed_args, console)
+
     except SystemExit as e:
-        # This catches argparse's exit for -h/--help or an error
+        # This catches argparse's exit for -h/--help or an error from ANY parser
         return e.code
     except Exception as e:
         console.print(f"[red]Error:[/red] An unexpected error occurred: {e}")
