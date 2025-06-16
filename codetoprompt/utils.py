@@ -1,7 +1,7 @@
 """Utility functions for code to prompt conversion."""
 
 from pathlib import Path
-from typing import Optional, Set
+from typing import Optional, Set, Tuple
 
 # Map file extensions to language names for markdown code blocks
 EXT_TO_LANG = {
@@ -39,6 +39,10 @@ TEXT_EXTENSIONS = {
     '.dockerfile', '.gitignore', '.env', '.c', '.cpp', '.h', '.hpp', '.java',
     '.kt', '.rb', '.php', '.go', '.rs', '.swift', '.dart', '.r', '.pl', '.lua'
 }
+
+# Data file extensions to truncate
+DATA_FILE_EXTENSIONS = {'.csv', '.json', '.jsonl'}
+DATA_FILE_LINE_LIMIT = 5
 
 # Binary file extensions to skip
 BINARY_EXTENSIONS = {
@@ -84,6 +88,34 @@ def should_skip_path(path: Path, root_dir: Path) -> bool:
         return True
     
     return False
+
+
+def read_and_truncate_file(file_path: Path, line_limit: int) -> Tuple[Optional[str], bool]:
+    """
+    Reads a file's content, truncating it to a specific number of lines if it's longer.
+    Returns a tuple of (content, was_truncated). Content is None if reading fails.
+    """
+    encodings = ['utf-8', 'latin-1', 'cp1252']
+    for encoding in encodings:
+        try:
+            with open(file_path, 'r', encoding=encoding) as f:
+                lines = []
+                was_truncated = False
+                for i, line in enumerate(f):
+                    if i < line_limit:
+                        lines.append(line)
+                    else:
+                        was_truncated = True
+                        break
+                
+                content = "".join(lines)
+                if '\x00' in content:  # Check for binary content
+                    continue
+                
+                return content, was_truncated
+        except Exception:
+            continue
+    return None, False
 
 
 def read_file_safely(file_path: Path, show_line_numbers: bool = True) -> Optional[str]:

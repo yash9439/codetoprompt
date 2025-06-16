@@ -8,7 +8,10 @@ from rich.console import Console
 from rich.tree import Tree
 from rich.progress import Progress
 
-from .utils import is_text_file, should_skip_path, read_file_safely, EXT_TO_LANG
+from .utils import (
+    is_text_file, should_skip_path, read_file_safely, EXT_TO_LANG,
+    read_and_truncate_file, DATA_FILE_EXTENSIONS, DATA_FILE_LINE_LIMIT
+)
 
 try:
     import pygit2
@@ -173,13 +176,30 @@ class CodeToPrompt:
             content: Optional[str] = None
             is_compressed = False
 
-            if self.compressor:
+            # --- Determine content ---
+            
+            # Priority 1: Truncate known data files
+            if file_path.suffix.lower() in DATA_FILE_EXTENSIONS:
+                raw_content, was_truncated = read_and_truncate_file(file_path, DATA_FILE_LINE_LIMIT)
+                if raw_content is not None:
+                    if self.show_line_numbers:
+                        lines = raw_content.splitlines()
+                        content = '\n'.join(f"{i+1:4d} | {line}" for i, line in enumerate(lines))
+                    else:
+                        content = raw_content.rstrip('\n')
+                    
+                    if was_truncated:
+                        content += f"\n... (file content truncated to first {DATA_FILE_LINE_LIMIT} lines)"
+            
+            # Priority 2: Try compressing (if not already handled as data file)
+            if content is None and self.compressor:
                 compressed_output = self.compressor.generate_compressed_prompt(str(file_path))
-                if compressed_output and not compressed_output.startswith("Could not detect") and not compressed_output.startswith("No parser"):
+                if compressed_output:
                     content = compressed_output
                     is_compressed = True
-
-            if not content:  # Fallback to full content
+            
+            # Priority 3: Fallback to full file read
+            if content is None:
                 content = read_file_safely(file_path, self.show_line_numbers)
 
             if content:
@@ -286,7 +306,7 @@ class CodeToPrompt:
                 is_compressed = file_data.get("is_compressed", False)
 
                 if is_compressed:
-                    # The FileAnalyser already formats its output with a file header, so just add it.
+                    # The compressor output already contains a file header.
                     parts.append(content)
                     parts.append("")
                     continue

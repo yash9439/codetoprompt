@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [0.5.8] - 2025-06-16
+
+### Update
+ **Code Compressor Bugs**: Fixed a Bug for unsupported Languages
+ **Dataset Detection**: Will Read first 5 lines for datasets for effective prompt and less tokens
+
 ## [0.5.7] - 2025-06-16
 
 ### Update
@@ -14,7 +20,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
  **CLI Alias**: The CLI can now be invoked with `ctp` as a shorter alias for `codetoprompt`.
  **Version Flag**: Added a `--version` (and `-v`) flag to display the current version number (e.g., `codetoprompt --version` or `ctp -v`).
-
 
 ## [0.5.5] - 2025-06-15
 
@@ -27,7 +32,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Code Compression**: A new `--compress` flag uses `tree-sitter` to parse supported code files (Python, JS, TS, Java, C/C++, Rust) into a structural summary. This dramatically reduces token count by omitting implementation details while preserving classes, functions, and signatures.
 - **Compression in Configuration**: The `codetoprompt config` wizard now allows setting compression as a default.
 - Files that cannot be compressed (e.g., unsupported languages, markdown) are included in their entirety as a fallback.
-
 
 ## [0.4.2] - 2025-06-15
 
