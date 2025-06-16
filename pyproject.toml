@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "codetoprompt"
-version = "0.5.5"
+version = "0.5.6"
 description = "Convert your codebase into a single LLM prompt"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -33,18 +33,7 @@ dependencies = [
 "pathspec>=0.11.0",
 "rich>=13.0.0",
 "toml>=0.10.2",
-"tree-sitter-language-pack>=0.8.0"
-]
-
-[project.optional-dependencies]
-dev = [
-"pytest>=7.0.0",
-"pytest-cov>=4.0.0",
-"black>=23.0.0",
-"isort>=5.0.0",
-"mypy>=1.0.0",
-"flake8>=6.0.0",
-"pre-commit>=3.0.0",
+"tree-sitter-language-pack>=0.8.0",
 ]
 
 [project.urls]
@@ -57,8 +46,8 @@ Changelog = "https://github.com/yash9439/codetoprompt/blob/main/CHANGELOG.md"
 [project.scripts]
 codetoprompt = "codetoprompt.cli:main"
 
-[tool.setuptools]
-packages = ["codetoprompt"]
+[tool.setuptools.packages.find]
+exclude = ["tests*"]
 
 [tool.setuptools.package-data]
 codetoprompt = ["py.typed"]

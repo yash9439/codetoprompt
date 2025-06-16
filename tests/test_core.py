@@ -152,7 +152,7 @@ def test_no_respect_gitignore(project_dir):
 def test_token_and_line_counts(project_dir):
     """Test that token and line counts are calculated correctly."""
     processor = CodeToPrompt(str(project_dir), respect_gitignore=False, include_patterns=["main.py"])
-    analysis = processor.analyze()
+    analysis = processor.analyse()
 
     assert analysis["overall"]["file_count"] == 1
     # main.py has 30 lines

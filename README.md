@@ -216,7 +216,7 @@ Example output:
 
 ### Code Compression
 
-When dealing with large codebases, the `--compress` flag is essential. It analyzes supported code files (Python, JS, TS, Java, C/C++, Rust) and generates a high-level summary instead of including the full code. This drastically reduces the token count while preserving the project's architecture.
+When dealing with large codebases, the `--compress` flag is essential. It analyses supported code files (Python, JS, TS, Java, C/C++, Rust) and generates a high-level summary instead of including the full code. This drastically reduces the token count while preserving the project's architecture.
 
 The compression extracts:
 - Import statements
@@ -250,7 +250,7 @@ Example output for a Python file with compression:
         ...
     def generate_prompt(self, progress):
         ...
-    def analyze(self, progress, top_n):
+    def analyse(self, progress, top_n):
         ...
     def copy_to_clipboard(self):
         ...
@@ -382,8 +382,8 @@ ctp = CodeToPrompt(
 # Generate prompt
 prompt = ctp.generate_prompt()
 
-# Analyze codebase
-analysis = ctp.analyze()
+# Analyse codebase
+analysis = ctp.analyse()
 
 # Get file contents
 files = ctp.get_files()

@@ -78,14 +78,16 @@ class CodeToPrompt:
         if not self.compress:
             return None
         try:
-            # Note: The class name is FileAnalyzer in your provided compressor.py
-            from .compressor import FileAnalyzer
-            return FileAnalyzer()
-        except ImportError:
-            self.console.print("[yellow]Warning: 'tree-sitter-language-pack' is not installed. Compression is disabled.[/yellow]")
+            # This now imports the new orchestrator class from your new `compressor` package.
+            from .compressor import Compressor
+            return Compressor()
+        except ImportError as e:
+            # The underlying dependencies (like tree-sitter) are still needed.
+            self.console.print("[yellow]Warning: Compression dependencies (e.g., 'tree-sitter-language-pack') are not installed. Compression is disabled.[/yellow]")
+            # Optional: print the error e for debugging
+            self.console.print(f"[dim]{e}[/dim]")
             self.compress = False
             return None
-        return None
 
     def _get_git_repo(self):
         """Get git repository if available. Returns None if not a repo or pygit2 is missing."""
@@ -284,7 +286,7 @@ class CodeToPrompt:
                 is_compressed = file_data.get("is_compressed", False)
 
                 if is_compressed:
-                    # The FileAnalyzer already formats its output with a file header, so just add it.
+                    # The FileAnalyser already formats its output with a file header, so just add it.
                     parts.append(content)
                     parts.append("")
                     continue
@@ -330,7 +332,7 @@ class CodeToPrompt:
 
         return self._generated_prompt
 
-    def analyze(self, progress: Optional[Progress] = None, top_n: int = 20) -> Dict[str, Any]:
+    def analyse(self, progress: Optional[Progress] = None, top_n: int = 20) -> Dict[str, Any]:
         """Runs a full analysis of the codebase."""
         self._process_files(progress)
 

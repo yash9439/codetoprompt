@@ -93,10 +93,10 @@ def create_analyse_parser() -> argparse.ArgumentParser:
     config = load_config()
     parser = argparse.ArgumentParser(
         prog="codetoprompt analyse",
-        description="Analyzes a codebase and provides statistics on file types, sizes, and token counts.",
+        description="Analyses a codebase and provides statistics on file types, sizes, and token counts.",
         allow_abbrev=False,  # Disable abbreviated long options
     )
-    parser.add_argument("directory", metavar="PATH", help="The path to the codebase directory to analyze.")
+    parser.add_argument("directory", metavar="PATH", help="The path to the codebase directory to analyse.")
     parser.add_argument("--include", help="Comma-separated glob patterns of files to include.")
     parser.add_argument("--exclude", help="Comma-separated glob patterns of files to exclude.")
     parser.add_argument("--top-n", type=int, default=10, help="Number of items to show in top lists.")
@@ -282,7 +282,7 @@ def run_analysis(args: argparse.Namespace, console: Console):
             SpinnerColumn(), TextColumn("[progress.description]{task.description}"),
             BarColumn(), TimeElapsedColumn(), console=console, transient=True,
         ) as progress:
-            analysis_data = processor.analyze(progress, top_n=args.top_n)
+            analysis_data = processor.analyse(progress, top_n=args.top_n)
 
         # Print overall summary
         summary = analysis_data["overall"]
