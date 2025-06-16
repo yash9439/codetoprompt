@@ -1,6 +1,7 @@
 # CodeToPrompt
 
 [![PyPI version](https://badge.fury.io/py/codetoprompt.svg)](https://badge.fury.io/py/codetoprompt)
+[![PyPI Downloads](https://static.pepy.tech/badge/codetoprompt)](https://pepy.tech/projects/codetoprompt)
 
 Convert your entire codebase into a single, context-rich prompt for Large Language Models (LLMs), perfectly formatted for direct use. It supports multiple output formats, code analysis, and intelligent file filtering.
 
@@ -256,6 +257,8 @@ Example output for a Python file with compression:
         ...
 ```
 
+> **Note on Large Data Files**: To further manage token count, `codetoprompt` automatically detects common data files (like `.csv`, `.json`) and includes only the first 5 lines. This provides a sample of the data's structure without overwhelming the prompt. This behavior is automatic and does not require a flag.
+
 ### Output Options
 
 1. **Save to File**
@@ -286,6 +289,24 @@ Example output for a Python file with compression:
    codetoprompt <path> --tree-depth 3
    ```
    Note: This only affects the initial project structure tree display in the prompt. It does not limit the files processed.
+
+### Other CLI Options
+
+#### Version Check
+To display the current version number, use the `--version` or `-v` flag:
+
+```bash
+codetoprompt --version
+# or
+ctp -v
+```
+
+#### Command Alias
+For convenience, `codetoprompt` can be invoked using the shorter alias `ctp`. The following commands are equivalent:
+```bash
+codetoprompt . --analyse
+ctp . --analyse
+```
 
 ### Configuration
 
