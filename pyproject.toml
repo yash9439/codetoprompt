@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "codetoprompt"
-version = "0.6.0"
+version = "0.6.1"
 description = "Convert your codebase into a single LLM prompt"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -34,10 +34,13 @@ dependencies = [
 "rich>=13.0.0",
 "toml>=0.10.2",
 "tree-sitter-language-pack>=0.8.0",
+"textual>=0.59.0",
+"questionary>=2.0.0",
 ]
 
 [project.optional-dependencies]
 dev = [
+    "codetoprompt[interactive]",
     "pytest",
     "pytest-cov",
     "black",

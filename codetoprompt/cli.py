@@ -3,15 +3,230 @@
 import argparse
 import sys
 from pathlib import Path
+from typing import Set, List, Optional, Iterable
+
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeElapsedColumn
 from rich.prompt import Prompt, Confirm
 from rich.table import Table
+from rich.text import Text
 
 from .core import CodeToPrompt
 from .config import load_config, save_config, get_config_path, reset_config
 from .version import __version__
+
+try:
+    import questionary
+    HAS_QUESTIONARY = True
+except ImportError:
+    HAS_QUESTIONARY = False
+
+try:
+    from textual.app import App, ComposeResult
+    from textual.widgets import Header, Footer, Tree, Static
+    from textual.widgets.tree import TreeNode
+    from textual.events import Key
+    HAS_TEXTUAL = True
+except ImportError:
+    HAS_TEXTUAL = False
+
+
+# --- New Textual TUI for Interactive Mode ---
+
+if HAS_TEXTUAL:
+    class SelectableTree(Tree):
+        """
+        A custom Tree widget that overrides key-press behavior to create a
+        more intuitive selection interface, including arrow and WASD navigation.
+        """
+        def on_key(self, event: Key) -> None:
+            """Process key events to handle selection, confirmation, and navigation."""
+            # Toggle selection with space
+            if event.key == "space":
+                self.app.action_toggle_selection()
+                event.stop()
+                return
+
+            # Confirm selection with enter
+            if event.key == "enter":
+                self.app.action_confirm_selection()
+                event.stop()
+                return
+
+            # Collapse folder with left arrow
+            if event.key in ("left",):
+                tree = self.app.query_one(Tree)
+                node = tree.cursor_node
+                if node and node.data.get("is_dir"):
+                    node.collapse()
+                    tree.refresh()
+                event.stop()
+                return
+
+            # Expand folder with right arrow
+            if event.key in ("right",):
+                tree = self.app.query_one(Tree)
+                node = tree.cursor_node
+                if node and node.data.get("is_dir"):
+                    node.expand()
+                    tree.refresh()
+                event.stop()
+                return
+                
+            # WASD navigation:
+            tree = self.app.query_one(Tree)
+            node = tree.cursor_node
+            if event.key == "w":            
+                tree = self.app.query_one(Tree)
+                # call the method on the Tree instance
+                getattr(tree, "action_cursor_up")()
+                tree.refresh()
+                event.stop()
+                return
+            
+            if event.key == "s":
+                tree = self.app.query_one(Tree)
+                # call the method on the Tree instance
+                getattr(tree, "action_cursor_down")()
+                tree.refresh()
+                event.stop()
+                return
+
+            if event.key == "a":
+                # treat 'a' like left arrow: collapse
+                if node and node.data.get("is_dir"):
+                    node.collapse()
+                    tree.refresh()
+                event.stop()
+                return
+
+            if event.key == "d":
+                # treat 'd' like right arrow: expand
+                if node and node.data.get("is_dir"):
+                    node.expand()
+                    tree.refresh()
+                event.stop()
+                return
+
+    class FileSelectorApp(App):
+        """A Textual TUI for interactively selecting files and directories."""
+
+        BINDINGS = [
+            ("q", "quit", "Quit"),
+        ]
+
+        def __init__(self, root_path: Path, candidate_files: Set[Path]):
+            super().__init__()
+            self.root_path = root_path
+            self.candidate_files = candidate_files
+            self.selected_paths = set()
+
+        def compose(self) -> ComposeResult:
+            yield Header()
+            yield Static(
+                "Navigate: [b]↑/↓/w/s[/b] | Expand/Collapse: [b]←/→/a/d[/b] | Toggle Select: [b]Space[/b] | Confirm: [b]Enter[/b]\n"
+                "[green]✓[/green] = All selected | [yellow]-[/yellow] = Some selected | [grey50]◦[/grey50] = None selected",
+                id="instructions",
+            )
+            yield SelectableTree(self.root_path.name, id="file_tree")
+            yield Footer()
+
+        def on_mount(self) -> None:
+            """Called when the app is mounted. Sets up the UI."""
+            self.query_one("#instructions").styles.text_align = "center"
+            self.query_one("#instructions").styles.padding = (0, 1)
+
+            tree = self.query_one(Tree)
+            tree.root.data = {"path": self.root_path, "is_dir": True, "selected": False}
+            self._populate_tree(self.root_path, tree.root)
+            self._update_all_labels()
+            tree.root.expand()
+
+        def _populate_tree(self, dir_path: Path, node: TreeNode) -> None:
+            """Recursively populates the tree with directories and candidate files."""
+            paths = sorted(list(dir_path.iterdir()), key=lambda p: (not p.is_dir(), p.name.lower()))
+
+            for path in paths:
+                if path.is_dir():
+                    if any(p.is_relative_to(path) for p in self.candidate_files):
+                        child_node = node.add(path.name, data={"path": path, "is_dir": True, "selected": False})
+                        self._populate_tree(path, child_node)
+                elif path in self.candidate_files:
+                    node.add_leaf(path.name, data={"path": path, "is_dir": False, "selected": False})
+
+        def _is_fully_selected(self, node: TreeNode) -> bool:
+            """Recursively checks if a node and all its descendants are marked as selected."""
+            if not node.data["selected"]:
+                return False
+            if node.data["is_dir"]:
+                return all(self._is_fully_selected(child) for child in node.children)
+            return True
+
+        def _set_node_and_children_selected(self, node: TreeNode, selected: bool):
+            """Recursively sets the 'selected' data for a node and all its children."""
+            node.data["selected"] = selected
+            if node.data["is_dir"]:
+                for child in node.children:
+                    self._set_node_and_children_selected(child, selected)
+
+        def action_toggle_selection(self) -> None:
+            """Called when the user presses space. Toggles the selection state."""
+            tree = self.query_one(Tree)
+            node = tree.cursor_node
+            if not node:
+                return
+
+            new_state = not self._is_fully_selected(node)
+            self._set_node_and_children_selected(node, new_state)
+            self._update_all_labels()
+
+        def _update_all_labels(self):
+            """Recalculates labels for the entire tree and refreshes the view."""
+            tree = self.query_one(Tree)
+            self._recalculate_and_set_label(tree.root)
+            tree.refresh()
+
+        def _recalculate_and_set_label(self, node: TreeNode) -> str:
+            """
+            Recursively determines the visual status of a node and sets its label.
+            """
+            status = 'none'
+            if not node.data["is_dir"]:
+                status = 'full' if node.data["selected"] else 'none'
+            else:
+                if not node.children:
+                    status = 'full' if node.data["selected"] else 'none'
+                else:
+                    child_statuses = {self._recalculate_and_set_label(child) for child in node.children}
+                    if len(child_statuses) == 1:
+                        status = child_statuses.pop()
+                    else:
+                        status = 'partial'
+
+            if status == 'full':
+                prefix = "[green]✓[/green]"
+            elif status == 'partial':
+                prefix = "[yellow]-[/yellow]"
+            else:
+                prefix = "[grey50]◦[/grey50]"
+
+            icon = "📁" if node.data["is_dir"] else "📄"
+            name = f"[b]{node.data['path'].name}[/b]" if node.data["is_dir"] else node.data['path'].name
+            node.set_label(Text.from_markup(f"{prefix} {icon} {name}"))
+            return status
+
+        def action_confirm_selection(self) -> None:
+            """Called on Enter. Collects all selected files and exits."""
+            selected_files = []
+            def collect(node: TreeNode):
+                if not node.data["is_dir"] and node.data["selected"]:
+                    selected_files.append(node.data["path"])
+                for child in node.children:
+                    collect(child)
+
+            collect(self.query_one(Tree).root)
+            self.exit(selected_files)
 
 
 def create_base_parser() -> argparse.ArgumentParser:
@@ -70,6 +285,12 @@ def create_main_parser() -> argparse.ArgumentParser:
     ln_group.add_argument("--show-line-numbers", action="store_true", dest="show_line_numbers", default=None, help="Prepend line numbers to code (overrides config).")
     ln_group.add_argument("--no-show-line-numbers", action="store_false", dest="show_line_numbers", help="Do not show line numbers (overrides config).")
 
+    parser.add_argument(
+        "-i", "--interactive",
+        action="store_true",
+        help="Interactively select which files to include in the prompt."
+    )
+    
     parser.add_argument("--compress", action="store_true", dest="compress", default=None, help="Use code compression to reduce prompt size.")
     ct_group = parser.add_mutually_exclusive_group()
     ct_group.add_argument("--count-tokens", action="store_true", dest="count_tokens", default=None, help="Count tokens in the prompt (overrides config).")
@@ -150,6 +371,10 @@ def run_config_command(args: argparse.Namespace, console: Console):
             console.print("[yellow]No configuration file found. Already using defaults.[/yellow]")
     else:
         # If no flags are provided, run the interactive wizard.
+        if not HAS_QUESTIONARY:
+             console.print("[red]Error:[/red] The 'questionary' package is required for the config wizard.")
+             console.print("Please install it: [bold]pip install 'codetoprompt[interactive]'[/bold] or [bold]pip install questionary[/bold]")
+             return 1
         run_config_wizard(console)
     return 0
 
@@ -179,7 +404,7 @@ def run_config_wizard(console: Console):
     """Interactive wizard to set default configuration."""
     console.print(Panel.fit("[bold cyan]CodeToPrompt Configuration Wizard[/bold cyan]", border_style="blue"))
     console.print("Set your preferred defaults. Press Enter to keep the current value.")
-    # ... (rest of the wizard is unchanged) ...
+    
     current_config = load_config()
     new_config = {}
 
@@ -232,17 +457,46 @@ def run_prompt_generation(args: argparse.Namespace, console: Console):
         create_main_parser().print_help()
         return 1
 
-    config = load_config()
-    include_patterns = [p.strip() for p in args.include.split(',')] if args.include else config["include_patterns"]
-    exclude_patterns = [p.strip() for p in args.exclude.split(',')] if args.exclude else config["exclude_patterns"]
-
     try:
         directory = validate_directory(args.directory)
+
+        config = load_config()
+        include_patterns = [p.strip() for p in args.include.split(',')] if args.include else config["include_patterns"]
+        exclude_patterns = [p.strip() for p in args.exclude.split(',')] if args.exclude else config["exclude_patterns"]
+        explicit_files = None
+
+        if args.interactive:
+            if not HAS_TEXTUAL:
+                console.print("[red]Error:[/red] The 'textual' package is required for interactive mode.")
+                console.print("Please install it: [bold]pip install 'codetoprompt[interactive]'[/bold] or [bold]pip install textual[/bold]")
+                return 1
+
+            scanner = CodeToPrompt(
+                root_dir=str(directory),
+                include_patterns=include_patterns,
+                exclude_patterns=exclude_patterns,
+                respect_gitignore=args.respect_gitignore,
+            )
+            candidate_files = scanner._get_files_to_process()
+
+            if not candidate_files:
+                console.print("[yellow]No files found to select from based on current filters.[/yellow]")
+                return 0
+            
+            app = FileSelectorApp(root_path=directory, candidate_files=set(candidate_files))
+            selected_files = app.run()
+
+            if selected_files is None:
+                console.print("\n[yellow]Interactive selection cancelled.[/yellow]")
+                return 0
+            
+            explicit_files = selected_files
+
         display_config = {
             "Root Directory": str(directory), "Include Patterns": include_patterns or ['*'], "Exclude Patterns": exclude_patterns or [],
             "Respect .gitignore": args.respect_gitignore, "Show Line Numbers": args.show_line_numbers,
             "Count Tokens": args.count_tokens, "Compress Code": args.compress, "Max Tokens": args.max_tokens or "Unlimited", "Tree Depth": args.tree_depth,
-            "Output Format": args.output_format,
+            "Output Format": args.output_format, "Interactive Mode": args.interactive,
         }
         show_config_panel(console, display_config, "CodeToPrompt")
 
@@ -250,7 +504,8 @@ def run_prompt_generation(args: argparse.Namespace, console: Console):
             root_dir=str(directory), include_patterns=include_patterns, exclude_patterns=exclude_patterns, compress=args.compress,
             respect_gitignore=args.respect_gitignore, show_line_numbers=args.show_line_numbers,
             max_tokens=args.max_tokens, tree_depth=args.tree_depth,
-            output_format=args.output_format
+            output_format=args.output_format,
+            explicit_files=explicit_files,
         )
 
         with Progress(
@@ -296,7 +551,6 @@ def run_analysis(args: argparse.Namespace, console: Console):
         ) as progress:
             analysis_data = processor.analyse(progress, top_n=args.top_n)
 
-        # Print overall summary
         summary = analysis_data["overall"]
         summary_panel = Panel.fit(
             f"[bold]Total Files:[/bold] {summary['file_count']:,}\n"
@@ -306,7 +560,6 @@ def run_analysis(args: argparse.Namespace, console: Console):
         )
         console.print(summary_panel)
 
-        # Print analysis tables
         if summary['file_count'] > 0:
             print_analysis_tables(console, analysis_data, args.top_n)
 
@@ -317,7 +570,6 @@ def run_analysis(args: argparse.Namespace, console: Console):
 
 def print_analysis_tables(console: Console, data: dict, top_n: int):
     """Prints the various analysis tables using rich."""
-    # File Type Analysis
     ext_table = Table(title=f"Analysis by File Type (Top {top_n})", header_style="bold magenta")
     ext_table.add_column("Extension", style="green")
     ext_table.add_column("Files", justify="right")
@@ -329,7 +581,6 @@ def print_analysis_tables(console: Console, data: dict, top_n: int):
         ext_table.add_row(row['extension'], f"{row['file_count']:,}", f"{row['tokens']:,}", f"{row['lines']:,}", f"{avg:,.0f}")
     console.print(ext_table)
 
-    # Top Files by Tokens
     token_table = Table(title=f"Largest Files by Tokens (Top {top_n})", header_style="bold magenta")
     token_table.add_column("File Path", style="cyan")
     token_table.add_column("Tokens", justify="right")
@@ -340,13 +591,15 @@ def print_analysis_tables(console: Console, data: dict, top_n: int):
 
 
 def validate_directory(directory_path: str) -> Path:
-    """Validate directory exists and is accessible."""
-    directory = Path(directory_path)
-    if not directory.exists():
-        raise ValueError(f"Directory '{directory}' does not exist")
-    if not directory.is_dir():
-        raise ValueError(f"'{directory}' is not a directory")
-    return directory
+    """
+    Validate directory exists, is a directory, and return its absolute path.
+    """
+    path = Path(directory_path).resolve()
+    if not path.exists():
+        raise ValueError(f"Directory '{directory_path}' does not exist")
+    if not path.is_dir():
+        raise ValueError(f"'{directory_path}' is not a directory")
+    return path
 
 
 def show_config_panel(console: Console, config: dict, title: str):

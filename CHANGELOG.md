@@ -5,10 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.1] - 2025-06-21
+### Added
+  **Interactive Mode**: A new `--interactive` (`-i`) flag launches a file selection UI, allowing you to manually choose which files to include in the prompt. This provides fine-grained control over the context.
+
+
 ## [0.6.0] - 2025-06-16
 ### Update
  **Documentation Update**: Updated Documentation
-
 
 ## [0.5.9] - 2025-06-16
 

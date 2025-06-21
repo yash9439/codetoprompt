@@ -46,6 +46,7 @@ class CodeToPrompt:
         max_tokens: Optional[int] = None,
         tree_depth: int = 5,
         output_format: str = "default",
+        explicit_files: Optional[List[Path]] = None,
     ):
         self.console = Console()
         self.root_dir = Path(root_dir).resolve()
@@ -57,6 +58,8 @@ class CodeToPrompt:
         self.tree_depth = tree_depth
         self.output_format = output_format
         self.compress = compress
+        self.explicit_files = explicit_files
+        self.explicit_files_set = set(self.explicit_files) if self.explicit_files is not None else None
         
         # --- CORRECTED INITIALIZATION ORDER ---
         # 1. Initialize repo first, as other initializers might depend on it.
@@ -134,6 +137,9 @@ class CodeToPrompt:
 
     def _should_include_file(self, file_path: Path) -> bool:
         """Check if file should be included."""
+        if self.explicit_files_set is not None:
+            return file_path in self.explicit_files_set
+        
         if should_skip_path(file_path, self.root_dir):
             return False
         
