@@ -1,3 +1,5 @@
+"""Core Functionality for CodeToPrompt."""
+
 import platform
 import subprocess
 from pathlib import Path
@@ -12,12 +14,6 @@ from .utils import (
     is_text_file, should_skip_path, read_file_safely, EXT_TO_LANG,
     read_and_truncate_file, DATA_FILE_EXTENSIONS, DATA_FILE_LINE_LIMIT
 )
-
-try:
-    import pygit2
-    HAS_PYGIT2 = True
-except ImportError:
-    HAS_PYGIT2 = False
 
 try:
     import tiktoken
@@ -61,23 +57,17 @@ class CodeToPrompt:
         self.explicit_files = explicit_files
         self.explicit_files_set = set(self.explicit_files) if self.explicit_files is not None else None
         
-        # --- CORRECTED INITIALIZATION ORDER ---
-        # 1. Initialize repo first, as other initializers might depend on it.
-        self.repo = self._get_git_repo()
-        
-        # 2. Initialize other components.
+        # 1. Initialize other components.
         self.compressor = self._get_compressor()
         self.tokenizer = self._get_tokenizer()
         self.gitignore_root: Optional[Path] = None
-        # Now this call is safe because self.repo exists.
         self.gitignore = self._get_gitignore_spec()
         
-        # 3. Initialize state variables.
+        # 2. Initialize state variables.
         self.processed_files: Dict[Path, Dict[str, Any]] = {}
         self._generated_prompt: Optional[str] = None
         self._files_processed = False
         self.xml_index = 1
-
 
     def _get_compressor(self):
         """Get code compressor if enabled and available."""
@@ -95,16 +85,6 @@ class CodeToPrompt:
             self.compress = False
             return None
 
-    def _get_git_repo(self):
-        """Get git repository if available. Returns None if not a repo or pygit2 is missing."""
-        if not HAS_PYGIT2:
-            return None
-        try:
-            # This will gracefully fail if the directory is not a git repo
-            return pygit2.Repository(str(self.root_dir))
-        except pygit2.GitError:
-            return None
-
     def _get_tokenizer(self):
         """Get tokenizer if available."""
         if not HAS_TIKTOKEN:
@@ -120,9 +100,6 @@ class CodeToPrompt:
             return None
         
         base_path = self.root_dir
-        # This check is now safe because self.repo is guaranteed to exist (even if it's None)
-        if self.repo and self.repo.workdir:
-            base_path = Path(self.repo.workdir)
 
         gitignore_path = base_path / ".gitignore"
         if not gitignore_path.exists():
@@ -226,22 +203,6 @@ class CodeToPrompt:
         
         self._files_processed = True
 
-    def _get_git_info(self) -> str:
-        """Get git repository information."""
-        if not self.repo or self.repo.is_empty:
-            return ""
-        
-        try:
-            head = self.repo.head
-            commit = head.peel()
-            return (
-                f"Current branch: {head.shorthand}\n"
-                f"Latest commit: {commit.hex[:8]}\n"
-                f"Author: {commit.author.name} <{commit.author.email}>\n"
-                f"Message: {commit.message.strip()}"
-            )
-        except Exception:
-            return ""
 
     def _build_tree_structure(self) -> str:
         """Build visual tree representation."""
@@ -289,11 +250,6 @@ class CodeToPrompt:
         self.xml_index = 1  # Reset index for each generation
 
         parts = []
-
-        # Add git info
-        git_info = self._get_git_info()
-        if git_info:
-            parts.extend(["Git Repository Information:", git_info, ""])
 
         # Add project structure
         parts.extend(["Project Structure:", self._build_tree_structure(), ""])
@@ -472,15 +428,3 @@ class CodeToPrompt:
         )
         
         return [{"extension": ext, "tokens": tokens} for ext, tokens in sorted_extensions[:count]]
-
-    def get_stats(self) -> Dict[str, int]:
-        """Get processing statistics."""
-        if not self._generated_prompt:
-            self.generate_prompt()
-        
-        return {
-            'files_processed': len(self.processed_files),
-            'total_characters': len(self._generated_prompt or ""),
-            'total_tokens': self.get_token_count(),
-            'total_lines': (self._generated_prompt or "").count('\n'),
-        }

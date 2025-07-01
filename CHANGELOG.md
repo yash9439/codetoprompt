@@ -5,97 +5,128 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.6.1] - 2025-06-21
-### Added
-  **Interactive Mode**: A new `--interactive` (`-i`) flag launches a file selection UI, allowing you to manually choose which files to include in the prompt. This provides fine-grained control over the context.
+---
 
+## \[0.6.2] - 2025-07-01
 
-## [0.6.0] - 2025-06-16
-### Update
- **Documentation Update**: Updated Documentation
+### Updated
 
-## [0.5.9] - 2025-06-16
+*   **Library Modularization**: Refactored CLI functionality into modular components for improved readability and maintainability.
 
-### Update
- **Code Compressor Bugs**: Fixed a Bug for unsupported Languages
- **Dataset Detection**: Will Read first 5 lines for datasets for effective prompt and less tokens
-
-## [0.5.7] - 2025-06-16
-
-### Update
- **Code Compressor**: Modularization
- 
-### Added
- **CLI Alias**: The CLI can now be invoked with `ctp` as a shorter alias for `codetoprompt`.
- **Version Flag**: Added a `--version` (and `-v`) flag to display the current version number (e.g., `codetoprompt --version` or `ctp -v`).
-
-## [0.5.5] - 2025-06-15
-
-### Update
-- **Documentation Update**: Updated Documentation for the Compression Feature and the -c, -m modes for prompt generation.
-
-## [0.5.0] - 2025-06-15
+## \[0.6.1] - 2025-06-21
 
 ### Added
-- **Code Compression**: A new `--compress` flag uses `tree-sitter` to parse supported code files (Python, JS, TS, Java, C/C++, Rust) into a structural summary. This dramatically reduces token count by omitting implementation details while preserving classes, functions, and signatures.
-- **Compression in Configuration**: The `codetoprompt config` wizard now allows setting compression as a default.
-- Files that cannot be compressed (e.g., unsupported languages, markdown) are included in their entirety as a fallback.
 
-## [0.4.2] - 2025-06-15
+*   **Interactive Mode**: Introduced a new `--interactive` (`-i`) flag that launches a file selection UI, allowing users to manually choose which files to include in the prompt. This provides fine-grained control over the context.
 
-### Added
-- **Flexible Output Formats**: Generate prompts in different formats using new CLI flags.
-  - `--markdown` (`-m`): Outputs file content in fenced Markdown code blocks with language hints.
-  - `--cxml` (`-c`): Outputs file content in a Claude-friendly XML structure.
+## \[0.6.0] - 2025-06-16
 
-### Changed
-- **Configuration Update**: The interactive wizard (`codetoprompt config`) and config file now support setting a default output format (`default`, `markdown`, or `cxml`).
+### Updated
 
-## [0.4.1] - 2025-06-14
+*   **Documentation**: Improved and updated documentation.
 
-### Added
-- **Codebase Analysis Command**: `codetoprompt analyse` for in-depth project statistics.
-- **Enhanced Prompt Summary**: Now includes top files and file types by token count.
+## \[0.5.9] - 2025-06-16
 
 ### Fixed
-- **Strict `config` Command**: Prevents running the wizard with invalid flags.
-- **Improved UI Consistency**: Panels now correctly size to their content.
 
-## [0.4.0] - 2025-06-13
+*   **Code Compressor Bugs**: Resolved issues with unsupported languages in the compression process.
 
-### Added
-- Interactive configuration wizard via `codetoprompt config`.
-- View/Reset configuration with `config --show` and `config --reset`.
-- Persistent configuration file at `~/.config/codetoprompt/config.toml`.
+### Updated
 
-### Changed
-- Bare `codetoprompt` command now shows help instead of running.
+*   **Dataset Detection**: Now reads the first 5 lines of dataset files to generate more effective prompts while reducing token usage.
 
-## [0.3.0] - 2025-06-12
+## \[0.5.7] - 2025-06-16
+
+### Updated
+
+*   **Code Compressor**: Refactored into modular components.
 
 ### Added
-- **Project Structure Tree**: Adds a visual tree of the project structure to the prompt.
+
+*   **CLI Alias**: You can now invoke the CLI using `ctp` as a shorthand for `codetoprompt`.
+*   **Version Flag**: Added `--version` and `-v` flags to display the current version (e.g., `codetoprompt --version` or `ctp -v`).
+
+## \[0.5.5] - 2025-06-15
+
+### Updated
+
+*   **Documentation**: Added details for the compression feature and the `--markdown` (`-m`) and `--cxml` (`-c`) output modes.
+
+## \[0.5.0] - 2025-06-15
+
+### Added
+
+*   **Code Compression**: Introduced a `--compress` flag that uses `tree-sitter` to parse supported code files (Python, JS, TS, Java, C/C++, Rust) into a structural summary. This significantly reduces the token count by omitting implementation details while preserving classes, functions, and signatures.
+*   **Configurable Compression**: The `codetoprompt config` wizard now supports setting compression as a default.
+*   **Fallback for Unsupported Files**: Files in unsupported languages (e.g., Markdown) are included in full.
+
+## \[0.4.2] - 2025-06-15
+
+### Added
+
+*   **Flexible Output Formats**: Generate prompts in different formats using new CLI flags:
+    *   `--markdown` (`-m`): Outputs file contents in fenced Markdown code blocks with language hints.
+    *   `--cxml` (`-c`): Outputs file contents in a Claude-friendly XML structure.
 
 ### Changed
-- **Improved CLI Output**: Enhanced progress bar and added more user feedback.
+
+*   **Configuration Options**: The interactive wizard (`codetoprompt config`) and config file now support setting a default output format (`default`, `markdown`, or `cxml`).
+
+## \[0.4.1] - 2025-06-14
+
+### Added
+
+*   **Codebase Analysis**: New `codetoprompt analyze` command for in-depth project statistics.
+*   **Enhanced Prompt Summary**: Includes top files and file types by token count.
 
 ### Fixed
-- Multiple bugs related to tree generation, including depth and relative paths.
-- Improved clipboard and output file handling.
 
-## [0.2.0] - 2025-06-12
+*   **Config Command Validation**: The `config` command now prevents invalid flag usage.
+*   **UI Improvements**: Panels now correctly size to their content.
 
-### Changed
-- **Robust File Processing**: Improved handling of special tokens, problematic files, and errors.
-- **Improved CLI**: Added directory validation and better argument handling.
-
-### Fixed
-- **Packaging & CI**: Corrected `pyproject.toml` and GitHub Actions workflow issues.
-- Multiple bugs in token counting and file processing logic.
-
-## [0.1.0] - 2025-06-11
+## \[0.4.0] - 2025-06-13
 
 ### Added
-- Initial release.
-- Core functionality for converting a codebase to a single prompt.
-- File filtering, token counting, and a command-line interface.
+
+*   **Interactive Configuration Wizard**: Accessed via `codetoprompt config`.
+*   **Config Management**: View and reset config with `codetoprompt config --show` and `codetoprompt config --reset`.
+*   **Persistent Configuration File**: Stored at `~/.config/codetoprompt/config.toml`.
+
+### Changed
+
+*   **CLI Default Behavior**: Running `codetoprompt` with no arguments now shows the help menu.
+
+## \[0.3.0] - 2025-06-12
+
+### Added
+
+*   **Project Structure Tree**: A visual tree of the project structure is now included in the prompt.
+
+### Changed
+
+*   **CLI Output Improvements**: Enhanced progress bar and more user feedback.
+
+### Fixed
+
+*   Multiple bugs related to tree generation, depth handling, and relative paths.
+*   Clipboard and output file handling issues.
+
+## \[0.2.0] - 2025-06-12
+
+### Changed
+
+*   **File Processing**: More robust handling of special tokens, problematic files, and file read errors.
+*   **CLI Enhancements**: Added directory validation and improved argument parsing.
+
+### Fixed
+
+*   **Packaging & CI**: Corrected `pyproject.toml` and GitHub Actions workflows.
+*   Multiple bugs in token counting and file handling logic.
+
+## \[0.1.0] - 2025-06-11
+
+### Added
+
+*   Initial release.
+*   Core functionality for converting a codebase into a single prompt.
+*   File filtering, token counting, and a command-line interface.
