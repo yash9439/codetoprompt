@@ -9,6 +9,10 @@ from textual.widgets import Header, Footer, Tree, Static
 from textual.widgets.tree import TreeNode
 from textual.events import Key
 
+from .core import CodeToPrompt
+from .utils import should_skip_path
+
+
 class SelectableTree(Tree):
     """
     A custom Tree widget that overrides key-press behavior to create a
@@ -90,10 +94,10 @@ class FileSelectorApp(App):
         ("q", "quit", "Quit"),
     ]
 
-    def __init__(self, root_path: Path, candidate_files: Set[Path]):
+    def __init__(self, root_path: Path, scanner: CodeToPrompt):
         super().__init__()
         self.root_path = root_path
-        self.candidate_files = candidate_files
+        self.scanner = scanner
         self.selected_paths = set()
 
     def compose(self) -> ComposeResult:
@@ -113,36 +117,64 @@ class FileSelectorApp(App):
 
         tree = self.query_one(Tree)
         tree.root.data = {"path": self.root_path, "is_dir": True, "selected": False}
-        self._populate_tree(self.root_path, tree.root)
+        self.populate_node(tree.root)
         self._update_all_labels()
         tree.root.expand()
 
-    def _populate_tree(self, dir_path: Path, node: TreeNode) -> None:
-        """Recursively populates the tree with directories and candidate files."""
-        paths = sorted(list(dir_path.iterdir()), key=lambda p: (not p.is_dir(), p.name.lower()))
+    def populate_node(self, node: TreeNode) -> None:
+        """Populates the direct children of a given tree node."""
+        if not node.data:
+            return
+
+        dir_path: Path = node.data["path"]
+        node.remove_children()
+
+        try:
+            paths = sorted(list(dir_path.iterdir()), key=lambda p: (not p.is_dir(), p.name.lower()))
+        except PermissionError:
+            node.add_leaf("❌ Permission denied")
+            return
 
         for path in paths:
+            # Use the scanner's own logic to determine if a path should be skipped
+            if should_skip_path(path, self.root_path):
+                continue
+            
             if path.is_dir():
-                if any(p.is_relative_to(path) for p in self.candidate_files):
-                    child_node = node.add(path.name, data={"path": path, "is_dir": True, "selected": False})
-                    self._populate_tree(path, child_node)
-            elif path in self.candidate_files:
+                child_node = node.add(path.name, data={"path": path, "is_dir": True, "selected": False})
+                child_node.add_leaf("...") # Placeholder for lazy loading
+            elif self.scanner._should_include_file(path):
                 node.add_leaf(path.name, data={"path": path, "is_dir": False, "selected": False})
 
+    def on_tree_node_expanded(self, event: Tree.NodeExpanded) -> None:
+        """Lazily loads directory contents when a node is expanded."""
+        node = event.node
+        if node.children and not node.children[0].data: # A placeholder node has no data
+            self.populate_node(node)
+            if node.data.get("selected", False):
+                self._set_node_and_children_selected(node, True)
+            self._update_all_labels()
+            node.expand()
+
     def _is_fully_selected(self, node: TreeNode) -> bool:
-        """Recursively checks if a node and all its descendants are marked as selected."""
-        if not node.data["selected"]:
+        """Recursively checks if a node and all its loaded descendants are selected."""
+        if not node.data.get("selected"):
             return False
-        if node.data["is_dir"]:
-            return all(self._is_fully_selected(child) for child in node.children)
+        if node.data.get("is_dir"):
+            # If a directory has not been expanded, we treat it as fully selected if its own flag is set.
+            if node.children and not node.children[0].data:
+                return True
+            return all(self._is_fully_selected(child) for child in node.children if child.data)
         return True
 
     def _set_node_and_children_selected(self, node: TreeNode, selected: bool):
-        """Recursively sets the 'selected' data for a node and all its children."""
+        """Recursively sets the 'selected' data for a node and all its loaded children."""
         node.data["selected"] = selected
         if node.data["is_dir"]:
             for child in node.children:
-                self._set_node_and_children_selected(child, selected)
+                # Don't try to select the placeholder node
+                if child.data:
+                    self._set_node_and_children_selected(child, selected)
 
     def action_toggle_selection(self) -> None:
         """Called when the user presses space. Toggles the selection state."""
@@ -158,8 +190,9 @@ class FileSelectorApp(App):
     def _update_all_labels(self):
         """Recalculates labels for the entire tree and refreshes the view."""
         tree = self.query_one(Tree)
-        self._recalculate_and_set_label(tree.root)
-        tree.refresh()
+        if tree.root:
+            self._recalculate_and_set_label(tree.root)
+            tree.refresh()
 
     def _recalculate_and_set_label(self, node: TreeNode) -> str:
         """
@@ -169,7 +202,8 @@ class FileSelectorApp(App):
         if not node.data["is_dir"]:
             status = 'full' if node.data["selected"] else 'none'
         else:
-            if not node.children:
+            # Check if directory is unexpanded (has a placeholder)
+            if not node.children or not node.children[0].data:
                 status = 'full' if node.data["selected"] else 'none'
             else:
                 child_statuses = {self._recalculate_and_set_label(child) for child in node.children}
@@ -190,14 +224,47 @@ class FileSelectorApp(App):
         node.set_label(Text.from_markup(f"{prefix} {icon} {name}"))
         return status
 
+    def _scan_and_collect(self, dir_path: Path, collected_files: set):
+        """
+        Optimized recursive walk to find all valid files under a directory.
+        It prunes entire subdirectories that should be skipped.
+        """
+        if should_skip_path(dir_path, self.root_path):
+            return
+
+        try:
+            for item in dir_path.iterdir():
+                if item.is_dir():
+                    self._scan_and_collect(item, collected_files)
+                elif self.scanner._should_include_file(item):
+                    collected_files.add(item)
+        except (PermissionError, FileNotFoundError):
+            # Ignore directories we can't read
+            pass
+
     def action_confirm_selection(self) -> None:
         """Called on Enter. Collects all selected files and exits."""
-        selected_files = []
-        def collect(node: TreeNode):
-            if not node.data["is_dir"] and node.data["selected"]:
-                selected_files.append(node.data["path"])
-            for child in node.children:
-                collect(child)
+        selected_files = set()
+        nodes_to_process = [self.query_one(Tree).root]
 
-        collect(self.query_one(Tree).root)
-        self.exit(selected_files)
+        while nodes_to_process:
+            node = nodes_to_process.pop(0)
+            if not node.data:
+                continue
+            
+            is_selected = node.data.get("selected", False)
+            path: Path = node.data["path"]
+
+            if node.data["is_dir"]:
+                if is_selected:
+                    # Directory is fully selected. Scan the filesystem from here.
+                    self._scan_and_collect(path, selected_files)
+                else:
+                    # Directory is not selected, but its children might be.
+                    # Add loaded children to the queue.
+                    if node.children and node.children[0].data:
+                        nodes_to_process.extend(node.children)
+            elif is_selected: # It's a file
+                selected_files.add(path)
+        
+        self.exit(list(selected_files))

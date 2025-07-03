@@ -234,12 +234,38 @@ class CodeToPrompt:
             tree_node.add("❌ Permission denied")
 
     def _get_files_to_process(self) -> List[Path]:
-        """Get list of files to process."""
-        files = []
-        for file_path in self.root_dir.rglob("*"):
-            if self._should_include_file(file_path):
-                files.append(file_path)
-        return sorted(files)
+        """Get list of files to process using an efficient, prunable walk."""
+        if self.explicit_files is not None:
+            return sorted(self.explicit_files)
+
+        files_to_process = []
+        dirs_to_visit = [self.root_dir]
+        
+        warning_threshold = 10000
+        warning_shown = False
+        
+        while dirs_to_visit:
+            current_dir = dirs_to_visit.pop(0)
+            
+            # Pruning check for the directory itself
+            if should_skip_path(current_dir, self.root_dir) and current_dir != self.root_dir:
+                continue
+                
+            try:
+                for path in current_dir.iterdir():
+                    if path.is_dir():
+                        dirs_to_visit.append(path)
+                    elif self._should_include_file(path):
+                        files_to_process.append(path)
+                        
+                        if not warning_shown and len(files_to_process) >= warning_threshold:
+                            self.console.print(f"[bold yellow]Warning:[/bold yellow] Matched over {warning_threshold:,} files. Processing may take some time...")
+                            warning_shown = True
+
+            except (PermissionError, FileNotFoundError):
+                continue
+
+        return sorted(files_to_process)
 
     def generate_prompt(self, progress: Optional[Progress] = None) -> str:
         """Generate prompt from codebase."""

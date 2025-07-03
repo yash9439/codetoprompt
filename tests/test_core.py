@@ -40,26 +40,6 @@ def project_dir(tmp_path):
     # Gitignore file
     (root / ".gitignore").write_text("*.csv\n.env\n.cache/\n")
 
-    # Initialize a git repository for testing git features
-    try:
-        import pygit2
-        repo = pygit2.init_repository(str(root))
-        index = repo.index
-        index.add_all()
-        index.write()
-        author = pygit2.Signature("Test Author", "test@example.com")
-        committer = pygit2.Signature("Test Committer", "test@example.com")
-        repo.create_commit(
-            "refs/heads/main",
-            author,
-            committer,
-            "Initial commit",
-            repo.index.write_tree(),
-            [],
-        )
-    except ImportError:
-        pass # pygit2 not installed, git tests will be skipped
-
     return root
 
 def test_initialization(project_dir):

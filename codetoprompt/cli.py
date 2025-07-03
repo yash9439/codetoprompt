@@ -29,23 +29,24 @@ def run_prompt_generation(args: argparse.Namespace, console: Console):
         explicit_files = None
 
         if args.interactive:
+            # The scanner now holds all the filtering logic.
             scanner = CodeToPrompt(
                 root_dir=str(directory),
                 include_patterns=include_patterns,
                 exclude_patterns=exclude_patterns,
                 respect_gitignore=args.respect_gitignore,
             )
-            candidate_files = scanner._get_files_to_process()
-
-            if not candidate_files:
-                console.print("[yellow]No files found to select from based on current filters.[/yellow]")
-                return 0
             
-            app = FileSelectorApp(root_path=directory, candidate_files=set(candidate_files))
+            # Pass the scanner to the app for lazy loading and filtering.
+            app = FileSelectorApp(root_path=directory, scanner=scanner)
             selected_files = app.run()
 
             if selected_files is None:
                 console.print("\n[yellow]Interactive selection cancelled.[/yellow]")
+                return 0
+
+            if not selected_files:
+                console.print("\n[yellow]No files were selected.[/yellow]")
                 return 0
             
             explicit_files = selected_files
