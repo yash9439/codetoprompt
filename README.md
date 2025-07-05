@@ -124,6 +124,59 @@ codetoprompt analyse <path>
 
 ## 🧠 Advanced Features
 
+### 🖐️ Interactive File Selection
+
+For ultimate control over your prompt's context, the `--interactive` (or `-i`) flag launches a Terminal User Interface (TUI) allowing you to manually select which files and directories to include.
+
+```bash
+codetoprompt <path> --interactive
+```
+
+This is perfect for including specific features or excluding irrelevant test files without complex glob patterns.
+
+**Example Interface:**
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                     |
+│                        FileSelectorApp                              |
+│           Navigate: ↑/↓/w/s  | Expand/Collapse: ←/a/d               |
+|               Toggle Select: Space | Confirm: Enter                 |
+│       ✓ = All selected | - = Some selected | ◦ = None selected      |
+│ ────────────────────────────────────────────────────────────────────│
+│                                                                     |
+│ ▶ 📁 .github                                                        |
+│ ▼ - 📁 codetoprompt                                                 |
+│ >   ▼ ✓ 📁 compressor                                               |
+│         ✓ 📁 analysers                                              |
+│         ✓ 📁 formatters                                             |
+│         ✓ 📄 __init__.py                                            |
+│         ✓ 📄 compressor.py                                          |
+│     ◦ 📄 __init__.py                                                |
+│     ◦ 📄 analysis.py                                                |
+│     ◦ 📄 arg_parser.py                                              |
+│     ◦ 📄 cli.py                                                     |
+│     ◦ 📄 config.py                                                  |
+│     ◦ 📄 core.py                                                    |
+│     ◦ 📄 interactive.py                                             |
+│     ◦ 📄 utils.py                                                   |
+│     ◦ 📄 version.py                                                 |
+│ ▶ 📁 codetoprompt.egg-info                                          |
+│ ▶ 📁 tests                                                          |
+│ ◦ 📄 .gitignore                                                     |
+│ ◦ 📄 CHANGELOG.md                                                   |
+│ ◦ 📄 CONTRIBUTING.md                                                |
+│ ◦ 📄 LICENSE                                                        |
+│ ◦ 📄 MANIFEST.in                                                    |
+│ ◦ 📄 pyproject.toml                                                 |
+│ ◦ 📄 pytest.ini                                                     |
+│ ◦ 📄 README.md                                                      |
+│                                                                     |
+│ q Quit                                                              |
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+> **Optimized for Large Projects:** The interactive file tree uses **lazy loading**, meaning it only loads a directory's contents when you expand it. This keeps the interface fast and responsive, even in massive codebases with thousands of files.
+
 ### 📄 Output Formats
 
 Tailor the output for different LLMs or use cases.
@@ -231,15 +284,16 @@ Here is the full list of options for the main `codetoprompt` command.
 | Option | Alias | Description |
 | :--- | :---: | :--- |
 | `--output <file>` | | Save the prompt to a file. **This overrides the default clipboard behavior.** |
-| `--include <patterns>` | | Comma-separated glob patterns for files to include (e.g., `"*.py,*.js"`). |
-| `--exclude <patterns>` | | Comma-separated glob patterns for files to exclude (e.g., `"*.pyc,dist/*"`). |
+| `--include <patterns>` | | Comma-separated glob patterns for files to include (e.g., `"*.py,*.js"`) (local only). |
+| `--exclude <patterns>` | | Comma-separated glob patterns for files to exclude (e.g., `"*.pyc,dist/*"`) (local only). |
+| `--interactive` | `-i` | Launch an interactive TUI to select files and directories (local only). |
 | `--markdown` | `-m` | Format output as a single Markdown document. |
 | `--cxml` | `-c` | Format output using Claude-friendly XML tags. |
-| `--compress` | | Use smart code compression to summarize files and reduce tokens. |
-| `--show-line-numbers` | | Prepend line numbers to code. Use `--no-show-line-numbers` to disable. |
-| `--respect-gitignore` | | Respect `.gitignore` rules (default). Use `--no-respect-gitignore` to disable. |
+| `--compress` | | Use smart code compression to summarize files and reduce tokens (local only). |
+| `--show-line-numbers` | | Prepend line numbers to code (local only). Use `--no-show-line-numbers` to disable. |
+| `--respect-gitignore` | | Respect `.gitignore` rules (local only, default). Use `--no-respect-gitignore` to disable. |
 | `--max-tokens <num>` | | Warn if token count exceeds this limit. Does not truncate. |
-| `--tree-depth <num>` | | Set the maximum depth for the project structure tree. |
+| `--tree-depth <num>` | | Set the maximum depth for the project structure tree (local only). |
 | `--version` | `-v` | Display the installed version number. |
 | `--help` | `-h` | Show this help message and exit. |
 
