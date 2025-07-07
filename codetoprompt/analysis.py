@@ -10,11 +10,15 @@ from rich.table import Table
 
 from .core import CodeToPrompt
 from .config import load_config, show_config_panel
+from .utils import is_url
 
 def validate_directory(directory_path: str) -> Path:
     """
     Validate directory exists, is a directory, and return its absolute path.
+    Also ensures the path is not a URL for local-only operations.
     """
+    if is_url(directory_path):
+        raise ValueError("URL paths are not supported for the 'analyse' command.")
     path = Path(directory_path).resolve()
     if not path.exists():
         raise ValueError(f"Directory '{directory_path}' does not exist")
@@ -29,7 +33,7 @@ def run_analysis(args: argparse.Namespace, console: Console):
     exclude_patterns = [p.strip() for p in args.exclude.split(',')] if args.exclude else config["exclude_patterns"]
 
     try:
-        directory = validate_directory(args.directory)
+        directory = validate_directory(args.target)
         display_config = {
             "Root Directory": str(directory), "Include Patterns": include_patterns or ['*'], "Exclude Patterns": exclude_patterns or [],
             "Respect .gitignore": args.respect_gitignore,
@@ -37,7 +41,7 @@ def run_analysis(args: argparse.Namespace, console: Console):
         show_config_panel(console, display_config, "Codebase Analysis")
 
         processor = CodeToPrompt(
-            root_dir=str(directory), include_patterns=include_patterns, exclude_patterns=exclude_patterns,
+            target=str(directory), include_patterns=include_patterns, exclude_patterns=exclude_patterns,
             respect_gitignore=args.respect_gitignore,
         )
 

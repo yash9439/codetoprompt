@@ -3,7 +3,7 @@
 [![PyPI version](https://badge.fury.io/py/codetoprompt.svg)](https://badge.fury.io/py/codetoprompt)
 [![PyPI Downloads](https://static.pepy.tech/badge/codetoprompt)](https://pepy.tech/projects/codetoprompt)
 
-**CodeToPrompt** is a powerful command-line and Python tool that transforms your entire codebase into a single, context-rich prompt optimized for Large Language Models (LLMs). It supports compression, intelligent file filtering, multiple output formats (including Claude XML and Markdown), and in-depth analysis of your project.
+**CodeToPrompt** is a powerful command-line and Python tool that transforms local codebases, GitHub repositories, web pages, and online documents into a single, context-rich prompt optimized for Large Language Models (LLMs). It supports compression, intelligent file filtering, multiple output formats (including Claude XML and Markdown), and in-depth analysis of your project.
 
 ---
 
@@ -34,18 +34,18 @@ sudo pacman -S xclip
 
 The two core commands are `codetoprompt` (or `ctp`) for generating prompts and `analyse` for inspecting your project.
 
-### Generate a Prompt from a Codebase
+### Generate a Prompt from a Local Codebase
 
-This is the main command. It scans your project and copies a context-rich prompt to your clipboard.
+This is the main command. It scans your local project and copies a context-rich prompt to your clipboard.
 
 ```bash
-codetoprompt <path>
+codetoprompt <path_to_directory>
 ```
 
-**Example Run:**
+**Example Run (Local):**
 
 ```
-╭───────────────── CodeToPrompt ──────────────────╮
+╭────────────── CodeToPrompt (Local)──────────────╮
 │ Configuration for this run:                     │
 │ Root Directory: .                               │
 │ Include Patterns: ['*.py', '*.md']              │
@@ -78,12 +78,44 @@ codetoprompt <path>
 ╰────────────────────────────────────────────────────╯
 ```
 
-### Run Codebase Analysis
+### Generate a Prompt from a URL
 
-Before generating a prompt, get a high-level overview of your project's composition and token count.
+Simply pass a supported URL to `codetoprompt` to fetch and process remote content.
 
 ```bash
-codetoprompt analyse <path>
+codetoprompt <url>
+```
+
+**Example Run (Remote):**
+```bash
+codetoprompt https://github.com/yash9439/codetoprompt
+```
+
+```
+╭─────── CodeToPrompt (Remote) ────────╮
+│ Configuration for this run:          │
+│ URL Target: https://github.com/yash9439/codetoprompt │
+│ Output Format: default               │
+│ Max Tokens: Unlimited                │
+╰──────────────────────────────────────╯
+✓ Fetching remote content...
+╭───────────────── Processing Complete ──────────────────╮
+│ Summary:                                               │
+│ Files Processed: 28                                    │
+│ Total Tokens: 43,891                                   │
+│ Output Destination: Clipboard                          │
+│ Copied to Clipboard: Yes                               │
+...
+╰────────────────────────────────────────────────────────╯
+```
+
+
+### Run Codebase Analysis (Local Only)
+
+Before generating a prompt, get a high-level overview of your local project's composition and token count.
+
+```bash
+codetoprompt analyse <path_to_directory>
 ```
 **Example Analysis:**
 ```
@@ -122,9 +154,47 @@ codetoprompt analyse <path>
 
 ---
 
-## 🧠 Advanced Features
+## 🧠 Processing Remote Content
 
-### 🖐️ Interactive File Selection
+`codetoprompt` can intelligently process various URL types, making it easy to pull in context from anywhere on the web.
+
+#### 1. GitHub Repositories
+It fetches all text-based files, builds a project tree, and includes their content.
+```bash
+codetoprompt https://github.com/yash9439/codetoprompt
+```
+
+#### 2. Web Pages & Documentation
+It fetches the page, strips away HTML boilerplate (like navigation and ads), and extracts the core text content.
+```bash
+codetoprompt https://python-poetry.org/docs/
+```
+
+#### 3. YouTube Videos
+It automatically extracts the full transcript from a YouTube video.
+```bash
+codetoprompt https://www.youtube.com/watch?v=cAkMcPfY_Ns
+```
+
+#### 4. ArXiv Papers
+Provide an ArXiv abstract URL, and it will download the full PDF and extract its text.
+```bash
+codetoprompt https://arxiv.org/abs/2203.02155
+```
+
+#### 5. Direct PDF URLs
+It directly downloads and extracts text from any public PDF link.
+```bash
+codetoprompt https://www.aeee.in/wp-content/uploads/2020/08/Sample-pdf.pdf
+```
+---
+
+## 🛠️ Advanced Features (Local Projects)
+
+The following features provide fine-grained control when processing **local directories**.
+
+### 🖐️ Interactive File Selection (Local Only)
+
 
 For ultimate control over your prompt's context, the `--interactive` (or `-i`) flag launches a Terminal User Interface (TUI) allowing you to manually select which files and directories to include.
 
@@ -177,7 +247,7 @@ This is perfect for including specific features or excluding irrelevant test fil
 
 > **Optimized for Large Projects:** The interactive file tree uses **lazy loading**, meaning it only loads a directory's contents when you expand it. This keeps the interface fast and responsive, even in massive codebases with thousands of files.
 
-### 📄 Output Formats
+## 📄 Output Formats
 
 Tailor the output for different LLMs or use cases.
 
@@ -284,19 +354,18 @@ Here is the full list of options for the main `codetoprompt` command.
 | Option | Alias | Description |
 | :--- | :---: | :--- |
 | `--output <file>` | | Save the prompt to a file. **This overrides the default clipboard behavior.** |
-| `--include <patterns>` | | Comma-separated glob patterns for files to include (e.g., `"*.py,*.js"`) (local only). |
-| `--exclude <patterns>` | | Comma-separated glob patterns for files to exclude (e.g., `"*.pyc,dist/*"`) (local only). |
-| `--interactive` | `-i` | Launch an interactive TUI to select files and directories (local only). |
+| `--include <patterns>` | | Comma-separated glob patterns for files to include (e.g., `"*.py,*.js"`) **(local only)**. |
+| `--exclude <patterns>` | | Comma-separated glob patterns for files to exclude (e.g., `"*.pyc,dist/*"`) **(local only)**. |
+| `--interactive` | `-i` | Launch an interactive TUI to select files and directories **(local only)**. |
 | `--markdown` | `-m` | Format output as a single Markdown document. |
 | `--cxml` | `-c` | Format output using Claude-friendly XML tags. |
-| `--compress` | | Use smart code compression to summarize files and reduce tokens (local only). |
-| `--show-line-numbers` | | Prepend line numbers to code (local only). Use `--no-show-line-numbers` to disable. |
-| `--respect-gitignore` | | Respect `.gitignore` rules (local only, default). Use `--no-respect-gitignore` to disable. |
+| `--compress` | | Use smart code compression to summarize files and reduce tokens **(local only)**. |
+| `--show-line-numbers` | | Prepend line numbers to code **(local only)**. Use `--no-show-line-numbers` to disable. |
+| `--respect-gitignore` | | Respect `.gitignore` rules **(local only, default)**. Use `--no-respect-gitignore` to disable. |
 | `--max-tokens <num>` | | Warn if token count exceeds this limit. Does not truncate. |
-| `--tree-depth <num>` | | Set the maximum depth for the project structure tree (local only). |
+| `--tree-depth <num>` | | Set the maximum depth for the project structure tree **(local only)**. |
 | `--version` | `-v` | Display the installed version number. |
 | `--help` | `-h` | Show this help message and exit. |
-
 
 ---
 
@@ -352,18 +421,16 @@ Use `codetoprompt` programmatically in your own Python scripts for maximum flexi
 ```python
 from codetoprompt import CodeToPrompt
 
-ctp = CodeToPrompt(
-    root_dir="path/to/project",
-    include_patterns=["*.py"],
-    exclude_patterns=["tests/*"],
-    compress=True,
-)
+# Process a local directory
+ctp_local = CodeToPrompt(target="path/to/project", compress=True)
+prompt_local = ctp_local.generate_prompt()
 
-# Generate a prompt string
-prompt = ctp.generate_prompt()
+# Process a remote URL
+ctp_remote = CodeToPrompt(target="https://github.com/user/repo")
+prompt_remote = ctp_remote.generate_prompt()
 
-# Get a detailed analysis dictionary
-analysis = ctp.analyse()
+# Get a detailed analysis dictionary (local only)
+analysis = ctp_local.analyse()
 ```
 
 ---

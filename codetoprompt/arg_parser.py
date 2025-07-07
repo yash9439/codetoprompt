@@ -27,6 +27,8 @@ def create_main_parser() -> argparse.ArgumentParser:
             "EXAMPLES:\n"
             "  # Generate a prompt from the current directory\n"
             "  codetoprompt .\n\n"
+            "  # Generate from a GitHub repository\n"
+            "  codetoprompt https://github.com/user/repo\n\n"
             "  # Generate a prompt in Markdown format\n"
             "  codetoprompt . -m\n\n"
             "  # Run a codebase analysis\n"
@@ -40,34 +42,34 @@ def create_main_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
-        "directory",
-        metavar="PATH",
+        "target",
+        metavar="PATH_OR_URL",
         nargs="?",
         default=None,
-        help="The path to the codebase directory to process (e.g., '.')."
+        help="The path to the local codebase or a URL to process."
     )
     parser.add_argument("--output", help="Save the prompt to a file instead of copying to clipboard.")
-    parser.add_argument("--include", help="Comma-separated glob patterns of files to include.")
-    parser.add_argument("--exclude", help="Comma-separated glob patterns of files to exclude.")
+    parser.add_argument("--include", help="Comma-separated glob patterns of files to include (local only).")
+    parser.add_argument("--exclude", help="Comma-separated glob patterns of files to exclude (local only).")
     parser.add_argument("--max-tokens", type=int, default=config.get("max_tokens"), help="Warn if token count exceeds this limit.")
-    parser.add_argument("--tree-depth", type=int, default=config.get("tree_depth"), help="Maximum depth for the project structure tree.")
+    parser.add_argument("--tree-depth", type=int, default=config.get("tree_depth"), help="Maximum depth for the project structure tree (local only).")
 
     # Add boolean flags with defaults from config
     rg_group = parser.add_mutually_exclusive_group()
-    rg_group.add_argument("--respect-gitignore", action="store_true", dest="respect_gitignore", default=None, help="Respect .gitignore rules (overrides config).")
-    rg_group.add_argument("--no-respect-gitignore", action="store_false", dest="respect_gitignore", help="Do not respect .gitignore rules (overrides config).")
+    rg_group.add_argument("--respect-gitignore", action="store_true", dest="respect_gitignore", default=None, help="Respect .gitignore rules (local only, overrides config).")
+    rg_group.add_argument("--no-respect-gitignore", action="store_false", dest="respect_gitignore", help="Do not respect .gitignore rules (local only, overrides config).")
 
     ln_group = parser.add_mutually_exclusive_group()
-    ln_group.add_argument("--show-line-numbers", action="store_true", dest="show_line_numbers", default=None, help="Prepend line numbers to code (overrides config).")
+    ln_group.add_argument("--show-line-numbers", action="store_true", dest="show_line_numbers", default=None, help="Prepend line numbers to code (local only, overrides config).")
     ln_group.add_argument("--no-show-line-numbers", action="store_false", dest="show_line_numbers", help="Do not show line numbers (overrides config).")
 
     parser.add_argument(
         "-i", "--interactive",
         action="store_true",
-        help="Interactively select which files to include in the prompt."
+        help="Interactively select which files to include in the prompt (local only)."
     )
     
-    parser.add_argument("--compress", action="store_true", dest="compress", default=None, help="Use code compression to reduce prompt size.")
+    parser.add_argument("--compress", action="store_true", dest="compress", default=None, help="Use code compression to reduce prompt size (local only).")
     ct_group = parser.add_mutually_exclusive_group()
     ct_group.add_argument("--count-tokens", action="store_true", dest="count_tokens", default=None, help="Count tokens in the prompt (overrides config).")
     ct_group.add_argument("--no-count-tokens", action="store_false", dest="count_tokens", help="Do not count tokens (improves speed, overrides config).")
@@ -108,7 +110,7 @@ def create_analyse_parser() -> argparse.ArgumentParser:
         parents=[base_parser],
         allow_abbrev=False,  # Disable abbreviated long options
     )
-    parser.add_argument("directory", metavar="PATH", help="The path to the codebase directory to analyse.")
+    parser.add_argument("target", metavar="PATH", help="The path to the local codebase directory to analyse.")
     parser.add_argument("--include", help="Comma-separated glob patterns of files to include.")
     parser.add_argument("--exclude", help="Comma-separated glob patterns of files to exclude.")
     parser.add_argument("--top-n", type=int, default=10, help="Number of items to show in top lists.")
@@ -134,4 +136,3 @@ def create_config_parser() -> argparse.ArgumentParser:
     group.add_argument("--show", action="store_true", help="Show the current configuration.")
     group.add_argument("--reset", action="store_true", help="Reset the configuration to defaults.")
     return parser
-

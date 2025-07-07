@@ -2,6 +2,7 @@
 
 from pathlib import Path
 from typing import Optional, Set, Tuple
+from urllib.parse import urlparse
 
 # Map file extensions to language names for markdown code blocks
 EXT_TO_LANG = {
@@ -141,3 +142,14 @@ def read_file_safely(file_path: Path, show_line_numbers: bool = True) -> Optiona
             return None
     
     return None
+
+def is_url(path: str) -> bool:
+    """Check if the given path string is a URL."""
+    if not isinstance(path, str):
+        return False
+    try:
+        result = urlparse(path)
+        # A URL must have a scheme (http, https) and a network location (domain)
+        return all([result.scheme, result.netloc])
+    except (ValueError, AttributeError):
+        return False
