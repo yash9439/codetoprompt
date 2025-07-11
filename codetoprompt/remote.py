@@ -100,12 +100,15 @@ def process_web_source(url: str) -> Dict[str, Any]:
     """Processes a generic web URL, ArXiv page, or direct PDF link."""
     source_url = url
     content = ""
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
 
     try:
         if get_url_type(url) == "arxiv":
             url = url.replace("/abs/", "/pdf/") + ".pdf"
 
-        response = requests.get(url, timeout=15)
+        response = requests.get(url, timeout=15, headers=headers)
         response.raise_for_status()
         content_type = response.headers.get('Content-Type', '').lower()
 
