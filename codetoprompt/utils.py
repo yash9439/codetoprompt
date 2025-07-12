@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 # Map file extensions to language names for markdown code blocks
 EXT_TO_LANG = {
     "py": "python",
+    "ipynb": "python",
     "js": "javascript",
     "ts": "typescript",
     "java": "java",
@@ -34,7 +35,7 @@ EXT_TO_LANG = {
 
 # Text file extensions
 TEXT_EXTENSIONS = {
-    '.py', '.js', '.ts', '.jsx', '.tsx', '.html', '.css', '.scss', '.sass',
+    '.py', '.ipynb', '.js', '.ts', '.jsx', '.tsx', '.html', '.css', '.scss', '.sass',
     '.json', '.xml', '.yaml', '.yml', '.toml', '.ini', '.cfg', '.conf',
     '.md', '.txt', '.rst', '.tex', '.csv', '.sql', '.sh', '.bash', '.zsh',
     '.dockerfile', '.gitignore', '.env', '.c', '.cpp', '.h', '.hpp', '.java',

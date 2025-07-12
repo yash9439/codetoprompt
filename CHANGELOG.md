@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## \[0.6.7] - 2025-07-12
+
+### Added
+
+*   **Jupyter Notebook Support**: Automatically processes `.ipynb` files by extracting Python code from all cells and including it in the prompt. This requires the `nbformat` and `nbconvert` packages.
+
+### Fixed
+
+*   **Tokenization Errors**: Fixed a critical bug where the tool would crash if a file's content included text that matched a special `tiktoken` token (e.g., `<|endoftext|>`). The tool now safely encodes such text.
+
 ## \[0.6.6] - 2025-07-11
 
 ### Added

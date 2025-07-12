@@ -30,6 +30,13 @@ try:
 except ImportError:
     HAS_PYPERCLIP = False
 
+try:
+    import nbformat
+    from nbconvert import PythonExporter
+    HAS_NBFORMAT = True
+except ImportError:
+    HAS_NBFORMAT = False
+
 
 class CodeToPrompt:
     """Convert code files or URLs to a context-rich prompt."""
@@ -113,6 +120,14 @@ class CodeToPrompt:
         except Exception:
             return None
 
+    def _count_tokens(self, text: str) -> int:
+        """Safely count tokens in a string, ignoring special tokens."""
+        if not self.tokenizer:
+            return 0
+        # The disallowed_special=() argument prevents errors when the
+        # input text contains special tokens like '<|endoftext|>'.
+        return len(self.tokenizer.encode(text, disallowed_special=()))
+
     def generate_prompt(self, progress: Optional[Progress] = None) -> str:
         """Generate prompt from a local path or a remote URL."""
         if self._generated_prompt:
@@ -157,7 +172,7 @@ class CodeToPrompt:
             content = file_info.get('content', '')
             self.processed_files[path_obj] = {
                 'content': content,
-                'tokens': len(self.tokenizer.encode(content)) if self.tokenizer else 0,
+                'tokens': self._count_tokens(content),
                 'lines': len(content.splitlines()),
                 'is_compressed': False,
             }
@@ -169,7 +184,7 @@ class CodeToPrompt:
         content = data.get('content', '')
         self.processed_files[source_url] = {
             'content': content,
-            'tokens': len(self.tokenizer.encode(content)) if self.tokenizer else 0,
+            'tokens': self._count_tokens(content),
             'lines': len(content.splitlines()),
         }
 
@@ -208,6 +223,33 @@ class CodeToPrompt:
         content = data.get('content', 'No content found.')
         self._generated_prompt = f"Source: {source}\n\n---\n\n{content}"
 
+    def _process_notebook_file(self, file_path: Path) -> Optional[str]:
+        """Processes a Jupyter notebook file, extracting Python code."""
+        if not HAS_NBFORMAT:
+            self.console.print(f"[yellow]Warning: 'nbformat' and 'nbconvert' not installed to process notebooks. Skipping: {file_path}[/yellow]")
+            return None
+        
+        try:
+            with open(file_path, "r", encoding='utf-8', errors='ignore') as f:
+                content_str = f.read()
+
+            if '"nbformat"' not in content_str:
+                self.console.print(f"[yellow]Warning: File {file_path} has .ipynb extension but not a valid notebook. Reading as plain text.[/yellow]")
+                return read_file_safely(file_path, self.show_line_numbers)
+            
+            notebook_node = nbformat.reads(content_str, as_version=4)
+            exporter = PythonExporter()
+            python_code, _ = exporter.from_notebook_node(notebook_node)
+            
+            if self.show_line_numbers:
+                lines = python_code.splitlines()
+                return '\n'.join(f"{i+1:4d} | {line}" for i, line in enumerate(lines))
+            
+            return python_code.strip()
+        except Exception as e:
+            self.console.print(f"[bold red]Error processing notebook {file_path}: {e}[/bold red]")
+            return f"# ERROR PROCESSING NOTEBOOK: {e}\n"
+
     def _process_local_files(self, progress: Optional[Progress] = None):
         """Process all local files to populate statistics."""
         if self._files_processed: return
@@ -221,31 +263,36 @@ class CodeToPrompt:
             content: Optional[str] = None
             is_compressed = False
 
-            # Priority 1: Truncate known data files
-            if file_path.suffix.lower() in DATA_FILE_EXTENSIONS:
-                raw_content, was_truncated = read_and_truncate_file(file_path, DATA_FILE_LINE_LIMIT)
-                if raw_content is not None:
-                    if self.show_line_numbers:
-                        lines = raw_content.splitlines()
-                        content = '\n'.join(f"{i+1:4d} | {line}" for i, line in enumerate(lines))
-                    else:
-                        content = raw_content.rstrip('\n')
-                    if was_truncated:
-                        content += f"\n... (file content truncated to first {DATA_FILE_LINE_LIMIT} lines)"
-            
-            # Priority 2: Try compressing
-            if content is None and self.compressor:
-                compressed_output = self.compressor.generate_compressed_prompt(str(file_path))
-                if compressed_output:
-                    content = compressed_output
-                    is_compressed = True
-            
-            # Priority 3: Fallback to full file read
+            # Priority 1: Handle Jupyter Notebooks
+            if file_path.suffix.lower() == ".ipynb":
+                content = self._process_notebook_file(file_path)
+
             if content is None:
-                content = read_file_safely(file_path, self.show_line_numbers)
+                # Priority 2: Truncate known data files
+                if file_path.suffix.lower() in DATA_FILE_EXTENSIONS:
+                    raw_content, was_truncated = read_and_truncate_file(file_path, DATA_FILE_LINE_LIMIT)
+                    if raw_content is not None:
+                        if self.show_line_numbers:
+                            lines = raw_content.splitlines()
+                            content = '\n'.join(f"{i+1:4d} | {line}" for i, line in enumerate(lines))
+                        else:
+                            content = raw_content.rstrip('\n')
+                        if was_truncated:
+                            content += f"\n... (file content truncated to first {DATA_FILE_LINE_LIMIT} lines)"
+                
+                # Priority 3: Try compressing (if not a data file)
+                if content is None and self.compressor:
+                    compressed_output = self.compressor.generate_compressed_prompt(str(file_path))
+                    if compressed_output:
+                        content = compressed_output
+                        is_compressed = True
+                
+                # Priority 4: Fallback to full file read
+                if content is None:
+                    content = read_file_safely(file_path, self.show_line_numbers)
 
             if content is not None:
-                file_token_count = len(self.tokenizer.encode(content)) if self.tokenizer else 0
+                file_token_count = self._count_tokens(content)
                 self.processed_files[file_path] = {
                     "content": content,
                     "tokens": file_token_count,
