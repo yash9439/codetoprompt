@@ -115,22 +115,30 @@ def test_cli_analyse_flags(capsys, project_dir):
     token_table_rows = [line for line in output_lines if "main.py" in line or "README.md" in line]
     assert len(token_table_rows) == 1
 
-@pytest.mark.parametrize("path_arg", [
-    "/path/that/does/not/exist",
-    "pyproject.toml" # a file, not a directory
-])
-def test_cli_invalid_path_errors(capsys, path_arg):
-    """Test that the CLI handles invalid paths gracefully."""
-    with patch("sys.argv", ["codetoprompt", path_arg]):
+def test_cli_non_existent_path_errors(capsys):
+    """Test that the CLI handles a non-existent path gracefully."""
+    with patch("sys.argv", ["codetoprompt", "/path/that/does/not/exist"]):
         return_code = main()
     
     captured = capsys.readouterr()
     assert return_code == 1
     assert "Error:" in captured.out
-    if "not/exist" in path_arg:
-        assert "does not exist" in captured.out
-    else:
-        assert "is not a directory" in captured.out
+    assert "does not exist" in captured.out
+
+def test_cli_single_file_as_input_succeeds(capsys, project_dir):
+    """Test that providing a single file path is handled correctly."""
+    single_file = project_dir / "main.py"
+    with patch("sys.argv", ["codetoprompt", str(single_file)]):
+        return_code = main()
+
+    captured = capsys.readouterr()
+    assert return_code == 0
+    assert "Error:" not in captured.out
+    # Check summary panel for single file processing
+    assert "Files Processed: 1" in captured.out
+    # These tables should not appear for a single file
+    assert "Top 3 Files by Tokens" not in captured.out
+    assert "Top 5 Extensions by Tokens" not in captured.out
 
 @pytest.mark.parametrize("args", [
     ["codetoprompt", "--version"],
