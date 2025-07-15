@@ -11,7 +11,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeEl
 from .core import CodeToPrompt
 from .config import load_config, show_config_panel, run_config_command
 from .interactive import FileSelectorApp
-from .analysis import validate_directory, run_analysis
+from .analysis import run_analysis
 from .arg_parser import create_main_parser, create_config_parser, create_analyse_parser
 from .utils import is_url
 from . import remote 
@@ -24,7 +24,8 @@ def run_prompt_generation(args: argparse.Namespace, console: Console):
         return 1
 
     is_remote_target = is_url(args.target)
-    config = load_config() 
+    config = load_config()
+    explicit_files = None
 
     # Check for incompatible flags with remote targets
     if is_remote_target:
@@ -36,15 +37,26 @@ def run_prompt_generation(args: argparse.Namespace, console: Console):
             console.print(f"[red]Error:[/red] The flag(s) {', '.join(incompatible_flags)} cannot be used with a URL target.")
             return 1
     else:
-        # Local path validation
-        try:
-            directory = validate_directory(args.target)
-            args.target = str(directory)  # Use the validated, resolved path
-        except Exception as e:
-            console.print(f"[red]Error:[/red] {e}")
+        # Local path validation for file or directory
+        target_path = Path(args.target).resolve()
+        if not target_path.exists():
+            console.print(f"[red]Error:[/red] Path '{args.target}' does not exist.")
             return 1
 
-    explicit_files = None
+        if target_path.is_file():
+            # Handle single file input
+            args.target = str(target_path.parent)
+            explicit_files = [target_path]
+            # Disable interactive mode for single file
+            if args.interactive:
+                console.print("[yellow]Warning:[/yellow] Interactive mode is disabled when a single file is provided.")
+                args.interactive = False
+        elif not target_path.is_dir():
+            console.print(f"[red]Error:[/red] Path '{args.target}' is not a valid file or directory.")
+            return 1
+        else:  # It's a directory
+            args.target = str(target_path)
+
     if not is_remote_target and args.interactive:
         # The scanner now holds all the filtering logic.
         scanner = CodeToPrompt(

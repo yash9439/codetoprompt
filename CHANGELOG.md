@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## \[0.6.8] - 2025-07-15
+
+### Fixed
+
+*   **Single File Input**: The CLI no longer errors when given a path to a single file (e.g., `ctp my_file.py`). It now correctly processes the specified file.
+*   **Jupyter Notebook Processing**: Resolved an issue where processing `.ipynb` files could cause the tool to hang by including a necessary dependency (`ipython`).
+
 ## \[0.6.7] - 2025-07-12
 
 ### Added

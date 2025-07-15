@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "codetoprompt"
-version = "0.6.7"
+version = "0.6.8"
 description = "Convert your codebase into a single LLM prompt"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -39,7 +39,8 @@ dependencies = [
 "PyPDF2>=3.0.0",
 "youtube-transcript-api>=0.6.0",
 "nbformat>=5.9.0",
-"nbconvert>=7.10.0"
+"nbconvert>=7.10.0",
+"ipython"
 ]
 
 [project.optional-dependencies]
