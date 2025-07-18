@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## \[0.6.9] - 2025-07-19
+### Fixed
+
+*   **File Filtering**: The `--include` and `--exclude` flags now correctly handle recursive folder patterns, behaving like `.gitignore` (e.g., `--exclude "my_folder"` or `--exclude "my_folder/**"` will exclude all contents).
+
 ## \[0.6.8] - 2025-07-15
 
 ### Fixed

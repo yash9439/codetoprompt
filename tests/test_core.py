@@ -46,7 +46,7 @@ def test_initialization(project_dir):
     """Test that the CodeToPrompt class initializes correctly."""
     processor = CodeToPrompt(str(project_dir))
     assert processor.root_dir == project_dir.resolve()
-    assert processor.include_patterns == ["*"]
+    assert processor.include_patterns == ["**"]
     assert processor.exclude_patterns == []
     assert processor.show_line_numbers is False
     # Test new default

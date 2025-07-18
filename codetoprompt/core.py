@@ -59,29 +59,39 @@ class CodeToPrompt:
         self.is_remote = is_url(self.target)
 
         # Common attributes
-        self.include_patterns = include_patterns or ["*"]
+        # Default to ** for recursive include if no specific patterns are provided.
+        self.include_patterns = include_patterns if include_patterns is not None else ["**"]
         self.exclude_patterns = exclude_patterns or []
         self.show_line_numbers = show_line_numbers
         self.max_tokens = max_tokens
         self.output_format = output_format
         self.compress = compress
         
+        # Initialize PathSpec for user-defined include/exclude patterns
+        self.user_include_spec: Optional[PathSpec] = None
+        self.user_exclude_spec: Optional[PathSpec] = None
+
         # Local-only attributes
         self.root_dir: Optional[Path] = None
         self.respect_gitignore = respect_gitignore
         self.tree_depth = tree_depth
         self.explicit_files = explicit_files
         self.explicit_files_set: Optional[Set[Path]] = None
-        self.gitignore_root: Optional[Path] = None
-        self.gitignore: Optional[PathSpec] = None
+        self.gitignore_spec: Optional[PathSpec] = None # Renamed for clarity
 
         if not self.is_remote:
             self.root_dir = Path(target).resolve()
             if self.explicit_files:
                 self.explicit_files_set = set(self.explicit_files)
+            else:
+                self.explicit_files_set = None # Ensure it's None if not explicitly set
+            
             if self.respect_gitignore:
-                self.gitignore = self._get_gitignore_spec()
-                self.gitignore_root = self.root_dir if self.gitignore else None
+                self.gitignore_spec = self._create_gitignore_spec()
+            
+            # Create PathSpec objects for user-defined include/exclude patterns
+            self.user_include_spec = PathSpec.from_lines(GitWildMatchPattern, self.include_patterns)
+            self.user_exclude_spec = PathSpec.from_lines(GitWildMatchPattern, self.exclude_patterns) if self.exclude_patterns else None
         
         # Initialize components and state
         self.compressor = self._get_compressor() if not self.is_remote else None
@@ -109,15 +119,17 @@ class CodeToPrompt:
         try: return tiktoken.get_encoding("cl100k_base")
         except Exception: return None
 
-    def _get_gitignore_spec(self):
-        """Get gitignore patterns if available."""
+    def _create_gitignore_spec(self) -> Optional[PathSpec]:
+        """Create a PathSpec for .gitignore patterns if available."""
         if not self.root_dir: return None
         gitignore_path = self.root_dir / ".gitignore"
         if not gitignore_path.exists(): return None
         try:
             with open(gitignore_path, 'r', encoding='utf-8') as f:
+                # GitWildMatchPattern is crucial for .gitignore style matching
                 return PathSpec.from_lines(GitWildMatchPattern, f)
         except Exception:
+            self.console.print(f"[yellow]Warning: Could not read .gitignore at {gitignore_path}. It will be ignored.[/yellow]")
             return None
 
     def _count_tokens(self, text: str) -> int:
@@ -357,24 +369,38 @@ class CodeToPrompt:
 
     def _should_include_file(self, file_path: Path) -> bool:
         """Check if a local file should be included."""
+        # This method is called for files that survived initial directory pruning.
+        # It applies file-specific, gitignore, and user glob patterns.
         if not self.root_dir: return False
+
+        # 1. Highest priority: explicit files from interactive mode
         if self.explicit_files_set is not None:
             return file_path in self.explicit_files_set
         
-        if should_skip_path(file_path, self.root_dir) or not file_path.is_file() or not is_text_file(file_path):
+        # 2. Hardcoded skips (e.g., common binary file extensions)
+        # Directory skips are handled in _get_files_to_process via should_skip_path
+        if not file_path.is_file() or not is_text_file(file_path):
             return False
         
-        rel_path = file_path.relative_to(self.root_dir)
+        rel_path_str = str(file_path.relative_to(self.root_dir))
+
+        # 3. Apply .gitignore rules if respecting them
+        if self.respect_gitignore and self.gitignore_spec:
+            if self.gitignore_spec.match_file(rel_path_str):
+                return False
         
-        if not any(rel_path.match(p) for p in self.include_patterns): return False
-        if any(rel_path.match(p) for p in self.exclude_patterns): return False
+        # 4. Apply user-defined exclude patterns
+        if self.user_exclude_spec:
+            if self.user_exclude_spec.match_file(rel_path_str):
+                return False
         
-        if self.gitignore and self.gitignore_root:
-            try:
-                if self.gitignore.match_file(str(file_path.relative_to(self.gitignore_root))):
-                    return False
-            except ValueError: pass
-        
+        # 5. Apply user-defined include patterns
+        # If user_include_spec matches the file, then it's included (provided it wasn't excluded by previous rules).
+        # Note: self.user_include_spec is always created, and will match all files if the default ["**"] is used.
+        if self.user_include_spec:
+            if not self.user_include_spec.match_file(rel_path_str):
+                return False
+
         return True
 
     def _build_tree_structure(self) -> str:
@@ -395,11 +421,13 @@ class CodeToPrompt:
         try:
             items = sorted(path.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower()))
             for item in items:
-                if self.root_dir and should_skip_path(item, self.root_dir): continue
+                # Use should_skip_path for coarse-grained directory exclusion (like .git, node_modules)
+                if self.root_dir and should_skip_path(item, self.root_dir) and item != self.root_dir:
+                    continue
                 if item.is_dir():
                     branch = tree_node.add(f"📁 {item.name}")
                     self._add_to_tree(item, branch, depth + 1)
-                elif self._should_include_file(item):
+                elif self._should_include_file(item): # Use the full inclusion logic for files
                     tree_node.add(f"📄 {item.name}")
         except PermissionError:
             tree_node.add("❌ Permission denied")
@@ -413,7 +441,12 @@ class CodeToPrompt:
         dirs_to_visit = [self.root_dir]
         while dirs_to_visit:
             current_dir = dirs_to_visit.pop(0)
-            if should_skip_path(current_dir, self.root_dir) and current_dir != self.root_dir: continue
+            
+            # Apply hardcoded directory skips (e.g., .git, node_modules, hidden dirs)
+            # This also implicitly handles `dist`, `build`, `__pycache__`
+            if should_skip_path(current_dir, self.root_dir) and current_dir != self.root_dir:
+                continue # Skip this directory entirely and its contents
+
             try:
                 for path in current_dir.iterdir():
                     if path.is_dir():
