@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## \[0.7.0] - 2025-07-31
+### Improved
+
+*   **Documentation**: Overhauled `README.md` for improved clarity, professionalism, and visual appeal.
+    *   Replaced the introductory slogan with a more descriptive summary of the tool's purpose.
+    *   Added a prominent "Key Features" section for a quick overview of capabilities.
+    *   Updated the example outputs for the `analyse` command and the interactive mode (`-i`) to better reflect current functionality and showcase features.
+    *   Added more badges for CI status, Python versions, and license.
+    *   Restructured the feature sections and command-line reference for better readability.
+
 ## \[0.6.9] - 2025-07-19
 ### Fixed
 
