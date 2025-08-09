@@ -28,6 +28,7 @@ TODO: Add a GIF demonstrating the key features:
 *   **Automatic File Handling**: Natively processes **Jupyter Notebooks**, samples large data files (like `.csv` or `.json`), and respects your `.gitignore` rules.
 *   **Powerful Filtering**: Fine-tune your context with `--include` and `--exclude` glob patterns.
 *   **In-Depth Analysis**: Run the `analyse` command to get a full breakdown of your project's languages, token counts, and file sizes before generating a prompt.
+*   **Snapshots and Diffs**: Save a JSON snapshot of a project and generate a unified diff against it. Diff is copied to clipboard by default (summary only shown in terminal), or written to a file with `--output`.
 
 ## 🔧 Installation
 
@@ -77,6 +78,23 @@ ctp https://python-poetry.org/docs/
 
 # From a YouTube video transcript
 ctp https://www.youtube.com/watch?v=cAkMcPfY_Ns
+```
+
+#### 3. Create a Snapshot (local only)
+
+```bash
+# Save a JSON snapshot of the current project
+codetoprompt snapshot . --output snap.json
+```
+
+#### 4. Diff Against a Snapshot (local only)
+
+```bash
+# Copies the full diff to the clipboard; terminal shows only a summary
+codetoprompt diff . --snapshot snap.json
+
+# Save the full diff to a file instead of copying to clipboard
+codetoprompt diff . --snapshot snap.json --output diff.txt
 ```
 
 ---
@@ -249,7 +267,6 @@ ctp analyse .
 │ codetoprompt/cli.py                       │  1,877 │   207 │
 │ tests/test_core.py                        │  1,743 │   179 │
 │ CHANGELOG.md                              │  1,701 │   183 │
-└───────────────────────────────────────────┴────────┴───────┘
 ```
 
 ---
@@ -264,8 +281,8 @@ Here is the full list of options for the main `codetoprompt` command.
 | `--markdown` | `-m` | Format output as a single Markdown document. | All |
 | `--cxml` | `-c` | Format output using Claude-friendly XML tags. | All |
 | `--max-tokens <num>`| | Warn if token count exceeds this limit. Does not truncate. | All |
-| `--include <pats>` | | Comma-separated glob patterns for files to include (e.g., `"*.py,*.js"`). | Local |
-| `--exclude <pats>` | | Comma-separated glob patterns for files to exclude (e.g., `"*.pyc,dist/*"`). | Local |
+| `--include <pats>` | | Comma-separated glob patterns for files to include (e.g., "*.py,*.js"). | Local |
+| `--exclude <pats>` | | Comma-separated glob patterns for files to exclude (e.g., "*.pyc,dist/*"). | Local |
 | `--interactive` | `-i` | Launch an interactive TUI to select files. | Local |
 | `--compress` | | Use smart code compression to summarize files. | Local |
 | `--show-line-numbers` | | Prepend line numbers to code. | Local |
@@ -273,6 +290,12 @@ Here is the full list of options for the main `codetoprompt` command.
 | `--tree-depth <num>` | | Set the maximum depth for the project structure tree. | Local |
 | `--version` | `-v` | Display the installed version number. | N/A |
 | `--help` | `-h` | Show the help message and exit. | N/A |
+
+### Subcommands
+
+- **Analyse**: `codetoprompt analyse <PATH> [--include ...] [--exclude ...]`
+- **Snapshot**: `codetoprompt snapshot <PATH> --output <snapshot.json> [--include ...] [--exclude ...] [--respect-gitignore|--no-respect-gitignore]`
+- **Diff**: `codetoprompt diff <PATH> --snapshot <snapshot.json> [--use-snapshot-filters] [--include ...] [--exclude ...] [--output <file>]`
 
 ---
 
@@ -283,6 +306,13 @@ Set your preferred defaults once using the `config` command. Settings are saved 
 *   **Interactive Wizard**: `ctp config`
 *   **Show Current Config**: `ctp config --show`
 *   **Reset to Defaults**: `ctp config --reset`
+
+Additional snapshot-related settings:
+
+- **Snapshot Max Bytes**: `snapshot_max_bytes` (default: 3 MB). If a text file exceeds this size, its content is not inlined into the snapshot.
+- **Snapshot Max Lines**: `snapshot_max_lines` (default: 20,000). If a text file exceeds this line count, its content is not inlined into the snapshot.
+
+> Snapshot always requires `--output`. Diff copies to clipboard by default (summary only printed to terminal). Provide `--output <file>` to write the diff to a file instead of copying.
 
 ---
 

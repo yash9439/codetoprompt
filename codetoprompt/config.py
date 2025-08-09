@@ -25,6 +25,9 @@ DEFAULT_CONFIG = {
     "exclude_patterns": [],
     "tree_depth": 5,
     "output_format": "default",
+    # Snapshot-related defaults
+    "snapshot_max_bytes": 3 * 1024 * 1024,  # 3 MB
+    "snapshot_max_lines": 20000,
 }
 
 def get_config_path() -> Path:
@@ -96,6 +99,8 @@ def show_current_config(console: Console):
     table.add_row("Max Tokens Warning", str(config.get('max_tokens') or "Unlimited"))
     table.add_row("Include Patterns", str(config.get('include_patterns') or "['*'] (All files)"))
     table.add_row("Exclude Patterns", str(config.get('exclude_patterns') or "[] (None)"))
+    table.add_row("Snapshot Max Bytes", str(config.get('snapshot_max_bytes')))
+    table.add_row("Snapshot Max Lines", str(config.get('snapshot_max_lines')))
 
     console.print(table)
     console.print(f"\n[dim]Config file location: {get_config_path()}[/dim]")
@@ -146,6 +151,20 @@ def run_config_wizard(console: Console):
         choices=["default", "markdown", "cxml"],
         default=current_format
     )
+
+    # Snapshot thresholds
+    snap_bytes_default = current_config.get("snapshot_max_bytes", DEFAULT_CONFIG["snapshot_max_bytes"]) or DEFAULT_CONFIG["snapshot_max_bytes"]
+    snap_lines_default = current_config.get("snapshot_max_lines", DEFAULT_CONFIG["snapshot_max_lines"]) or DEFAULT_CONFIG["snapshot_max_lines"]
+    snap_bytes_str = Prompt.ask(
+        "Snapshot max bytes for inlining content (0 to always inline)",
+        default=str(snap_bytes_default)
+    )
+    new_config["snapshot_max_bytes"] = int(snap_bytes_str) if snap_bytes_str.isdigit() else snap_bytes_default
+    snap_lines_str = Prompt.ask(
+        "Snapshot max lines for inlining content (0 to always inline)",
+        default=str(snap_lines_default)
+    )
+    new_config["snapshot_max_lines"] = int(snap_lines_str) if snap_lines_str.isdigit() else snap_lines_default
 
     save_config(new_config)
     console.print(f"\n[green]✓ Configuration saved to:[/] {get_config_path()}")

@@ -12,9 +12,16 @@ from .core import CodeToPrompt
 from .config import load_config, show_config_panel, run_config_command
 from .interactive import FileSelectorApp
 from .analysis import run_analysis
-from .arg_parser import create_main_parser, create_config_parser, create_analyse_parser
+from .arg_parser import (
+    create_main_parser,
+    create_config_parser,
+    create_analyse_parser,
+    create_snapshot_parser,
+    create_diff_parser,
+)
 from .utils import is_url
 from . import remote 
+from .snapshot import run_snapshot_command, run_diff_command
 
 def run_prompt_generation(args: argparse.Namespace, console: Console):
     """The main logic for generating a prompt."""
@@ -186,6 +193,14 @@ def main(args=None):
                 parser = create_analyse_parser()
                 parsed_args = parser.parse_args(raw_args[1:])
                 return run_analysis(parsed_args, console)
+            if command == 'snapshot':
+                parser = create_snapshot_parser()
+                parsed_args = parser.parse_args(raw_args[1:])
+                return run_snapshot_command(parsed_args, console)
+            if command == 'diff':
+                parser = create_diff_parser()
+                parsed_args = parser.parse_args(raw_args[1:])
+                return run_diff_command(parsed_args, console)
 
         # Default to prompt generation if no subcommand is found
         parser = create_main_parser()

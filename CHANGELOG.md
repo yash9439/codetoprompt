@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## \[0.7.1] - 2025-08-08
+### Added
+
+*   **Snapshot Command**: `codetoprompt snapshot <PATH> --output <snapshot.json>` to save a JSON snapshot of a local project (no git required).
+    *   `--output` is required for this command.
+*   **Diff Command**: `codetoprompt diff <PATH> --snapshot <snapshot.json>` to show a unified diff between the current project state and a previous snapshot.
+    *   By default, the diff is copied to the clipboard when no `--output` is provided (if `pyperclip` is available; on Linux ensure `xclip` or `wl-copy`).
+    *   Providing `--output <file>` writes the diff to the given path instead of copying to the clipboard.
+*   **Configurable Snapshot Thresholds**: Set via `codetoprompt config`:
+    *   `snapshot_max_bytes` (default 3 MB)
+    *   `snapshot_max_lines` (default 20,000)
+
+### Notes
+
+*   Diff supports `--use-snapshot-filters` to reuse include/exclude and `.gitignore` behavior from the snapshot; you can override with flags.
+
+---
 ## \[0.7.0] - 2025-07-31
 ### Improved
 

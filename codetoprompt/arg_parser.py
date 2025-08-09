@@ -33,6 +33,10 @@ def create_main_parser() -> argparse.ArgumentParser:
             "  codetoprompt . -m\n\n"
             "  # Run a codebase analysis\n"
             "  codetoprompt analyse .\n\n"
+            "  # Create a snapshot\n"
+            "  codetoprompt snapshot . --output snapshot.json\n\n"
+            "  # Show a diff against a snapshot\n"
+            "  codetoprompt diff . --snapshot snapshot.json\n\n"
             "  # Configure default settings\n"
             "  codetoprompt config\n"
         ),
@@ -135,4 +139,52 @@ def create_config_parser() -> argparse.ArgumentParser:
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--show", action="store_true", help="Show the current configuration.")
     group.add_argument("--reset", action="store_true", help="Reset the configuration to defaults.")
+    return parser
+
+
+def create_snapshot_parser() -> argparse.ArgumentParser:
+    """Create a parser for the 'snapshot' command."""
+    base_parser = create_base_parser()
+    config = load_config()
+    parser = argparse.ArgumentParser(
+        prog="codetoprompt snapshot",
+        description="Create a JSON snapshot of a local project (no git required).",
+        parents=[base_parser],
+        allow_abbrev=False,
+    )
+    parser.add_argument("target", metavar="PATH", help="The path to the local codebase directory to snapshot.")
+    parser.add_argument("--output", required=True, help="Path to write the snapshot JSON file.")
+    parser.add_argument("--include", help="Comma-separated glob patterns of files to include.")
+    parser.add_argument("--exclude", help="Comma-separated glob patterns of files to exclude.")
+
+    rg_group = parser.add_mutually_exclusive_group()
+    rg_group.add_argument("--respect-gitignore", action="store_true", dest="respect_gitignore", default=None, help="Respect .gitignore rules (overrides config).")
+    rg_group.add_argument("--no-respect-gitignore", action="store_false", dest="respect_gitignore", help="Do not respect .gitignore rules (overrides config).")
+
+    parser.set_defaults(respect_gitignore=config.get("respect_gitignore", True))
+    return parser
+
+
+def create_diff_parser() -> argparse.ArgumentParser:
+    """Create a parser for the 'diff' command."""
+    base_parser = create_base_parser()
+    config = load_config()
+    parser = argparse.ArgumentParser(
+        prog="codetoprompt diff",
+        description="Show a unified diff between current project state and a previous snapshot (no git required).",
+        parents=[base_parser],
+        allow_abbrev=False,
+    )
+    parser.add_argument("target", metavar="PATH", help="The path to the local codebase directory to compare.")
+    parser.add_argument("--snapshot", required=True, help="Path to a previously saved snapshot JSON file.")
+    parser.add_argument("--include", help="Comma-separated glob patterns of files to include (overrides).")
+    parser.add_argument("--exclude", help="Comma-separated glob patterns of files to exclude (overrides).")
+    parser.add_argument("--use-snapshot-filters", action="store_true", dest="use_snapshot_filters", help="Use include/exclude and .gitignore settings from the snapshot.")
+    parser.add_argument("--output", help="Write diff text to a file instead of just printing.")
+
+    rg_group = parser.add_mutually_exclusive_group()
+    rg_group.add_argument("--respect-gitignore", action="store_true", dest="respect_gitignore", default=None, help="Respect .gitignore rules (overrides config).")
+    rg_group.add_argument("--no-respect-gitignore", action="store_false", dest="respect_gitignore", help="Do not respect .gitignore rules (overrides config).")
+
+    parser.set_defaults(respect_gitignore=config.get("respect_gitignore", True))
     return parser

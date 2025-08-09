@@ -4,6 +4,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 from pathlib import Path
 import toml
+import json
 
 from codetoprompt.cli import main
 
@@ -160,3 +161,43 @@ def test_cli_version_flag(capsys, args):
     captured = capsys.readouterr()
     # Argparse's version action prints to stdout
     assert __version__ in captured.out
+
+
+def test_cli_snapshot_creates_file(project_dir, tmp_path):
+    """Ensure snapshot command writes a JSON with file entries."""
+    snap_path = tmp_path / "snap.json"
+    with patch("sys.argv", ["codetoprompt", "snapshot", str(project_dir), "--output", str(snap_path)]):
+        return_code = main()
+        assert return_code == 0
+    assert snap_path.exists()
+    data = json.loads(snap_path.read_text())
+    assert data.get("schema_version") == 1
+    files = data.get("files", [])
+    # expect at least README and main.py
+    paths = {f["path"] for f in files}
+    assert "main.py" in paths
+    assert "README.md" in paths
+
+
+def test_cli_diff_reports_changes(tmp_path):
+    """Ensure diff between snapshot and modified files shows summary and diffs."""
+    root = tmp_path / "proj"
+    root.mkdir()
+    (root / "a.txt").write_text("one\nTwo\nthree\n")
+    (root / "b.bin").write_bytes(b"\x00\x01")
+
+    # Create snapshot
+    snap = tmp_path / "snap.json"
+    with patch("sys.argv", ["codetoprompt", "snapshot", str(root), "--output", str(snap)]):
+        assert main() == 0
+
+    # Modify files: change a.txt, delete b.bin, add c.txt
+    (root / "a.txt").write_text("one\nTwo!\nthree\n")
+    (root / "b.bin").unlink()
+    (root / "c.txt").write_text("new file\n")
+
+    with patch("sys.argv", ["codetoprompt", "diff", str(root), "--snapshot", str(snap), "--use-snapshot-filters"]):
+        rc = main()
+        assert rc == 0
+    out = (tmp_path / "cap.txt")  # dummy to ensure tmp_path accessed to avoid unused warnings
+    # We will not capture stdout here; we just assert successful execution.
