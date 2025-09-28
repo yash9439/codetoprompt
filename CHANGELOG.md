@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## \[0.7.2] - 2025-08-11
+### Added
+
+*   **File Size Limits**: Introduced flags to control the maximum size of individual files included in the prompt:
+    *   `--file-max-lines <num>`: Truncates file content after `num` lines.
+    *   `--file-max-bytes <num>`: Truncates file content after `num` bytes.
+    *   This is applied to regular files before compression is attempted, ensuring massive files don't overwhelm the context window. Files truncated by these limits are marked with a note in the final prompt.
+
+---
 ## \[0.7.1] - 2025-08-08
 ### Added
 
@@ -16,7 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     *   Providing `--output <file>` writes the diff to the given path instead of copying to the clipboard.
 *   **Configurable Snapshot Thresholds**: Set via `codetoprompt config`:
     *   `snapshot_max_bytes` (default 3 MB)
-    *   `snapshot_max_lines` (default 20,000)
+    *   `snapshot_max_lines` (default 100,000)
 
 ### Notes
 

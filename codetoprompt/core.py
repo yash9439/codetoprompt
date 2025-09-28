@@ -53,6 +53,8 @@ class CodeToPrompt:
         tree_depth: int = 5,
         output_format: str = "default",
         explicit_files: Optional[List[Path]] = None,
+        file_max_lines: Optional[int] = None,
+        file_max_bytes: Optional[int] = None, 
     ):
         self.console = Console()
         self.target = target
@@ -66,6 +68,10 @@ class CodeToPrompt:
         self.max_tokens = max_tokens
         self.output_format = output_format
         self.compress = compress
+
+        # NEW LIMITS
+        self.file_max_lines = file_max_lines
+        self.file_max_bytes = file_max_bytes
         
         # Initialize PathSpec for user-defined include/exclude patterns
         self.user_include_spec: Optional[PathSpec] = None
@@ -271,38 +277,85 @@ class CodeToPrompt:
             task = progress.add_task("Processing files...", total=len(files))
         
         self.processed_files.clear()
+        
+        # Dictionary to track which files were truncated and why
+        file_truncation_notes: Dict[Path, str] = {} 
+
         for file_path in files:
             content: Optional[str] = None
             is_compressed = False
+            raw_content: Optional[str] = None
+            was_truncated = False
 
             # Priority 1: Handle Jupyter Notebooks
             if file_path.suffix.lower() == ".ipynb":
                 content = self._process_notebook_file(file_path)
-
+            
             if content is None:
-                # Priority 2: Truncate known data files
+                # --- Content Retrieval Path ---
+                
+                # Determine limits to apply
+                line_limit = None
+                byte_limit = None
+                
+                # 2. Specialized Data File Truncation (Highest priority for these types)
                 if file_path.suffix.lower() in DATA_FILE_EXTENSIONS:
-                    raw_content, was_truncated = read_and_truncate_file(file_path, DATA_FILE_LINE_LIMIT)
+                    line_limit = DATA_FILE_LINE_LIMIT
+                    file_truncation_notes[file_path] = "data_limit"
+                
+                # 3. Apply general file limits if set (only if not a data file)
+                elif self.file_max_lines or self.file_max_bytes:
+                    line_limit = self.file_max_lines
+                    byte_limit = self.file_max_bytes
+                
+                # Read the file applying determined limits
+                if line_limit is not None or byte_limit is not None:
+                    raw_content, was_truncated = read_and_truncate_file(file_path, line_limit=line_limit, byte_limit=byte_limit)
+                    
+                    if was_truncated and file_path not in file_truncation_notes:
+                         # Only mark as user_limit if it was truncated AND not already marked as data_limit
+                        file_truncation_notes[file_path] = "user_limit"
+                
+                # 4. Try Compression (only if file was NOT truncated by user limits, ensuring we summarize the full structure)
+                # If raw_content is None, read it fully now to feed the compressor.
+                if not was_truncated and self.compressor:
+                    if raw_content is None:
+                        raw_content, _ = read_and_truncate_file(file_path) # Read full content
+                    
                     if raw_content is not None:
+                        # Compressor needs the file path, not the content string
+                        compressed_output = self.compressor.generate_compressed_prompt(str(file_path))
+                        if compressed_output:
+                            content = compressed_output
+                            is_compressed = True
+
+                # 5. Finalize content if not compressed
+                if content is None:
+                    if raw_content is None:
+                        # Full fallback read (if raw_content was never set, e.g., no limits applied)
+                        raw_content, _ = read_and_truncate_file(file_path) 
+                    
+                    if raw_content is not None:
+                        # Apply line numbers or finalize full content
+                        lines = raw_content.splitlines()
                         if self.show_line_numbers:
-                            lines = raw_content.splitlines()
                             content = '\n'.join(f"{i+1:4d} | {line}" for i, line in enumerate(lines))
                         else:
                             content = raw_content.rstrip('\n')
-                        if was_truncated:
-                            content += f"\n... (file content truncated to first {DATA_FILE_LINE_LIMIT} lines)"
+            
+            # 6. Apply Truncation notes (if truncation happened and we are not compressed)
+            if content is not None and not is_compressed and file_path in file_truncation_notes:
+                truncation_type = file_truncation_notes[file_path]
                 
-                # Priority 3: Try compressing (if not a data file)
-                if content is None and self.compressor:
-                    compressed_output = self.compressor.generate_compressed_prompt(str(file_path))
-                    if compressed_output:
-                        content = compressed_output
-                        is_compressed = True
-                
-                # Priority 4: Fallback to full file read
-                if content is None:
-                    content = read_file_safely(file_path, self.show_line_numbers)
+                if truncation_type == "data_limit":
+                    content += f"\n\n... (Data file content truncated to first {DATA_FILE_LINE_LIMIT} lines)"
+                elif truncation_type == "user_limit":
+                    limit_note = []
+                    if self.file_max_lines: limit_note.append(f"{self.file_max_lines} lines")
+                    if self.file_max_bytes: limit_note.append(f"{self.file_max_bytes} bytes")
+                    content += f"\n\n... (File content truncated due to limits: {', '.join(limit_note)})"
 
+            # 7. Save processed file data
             if content is not None:
                 file_token_count = self._count_tokens(content)
                 self.processed_files[file_path] = {

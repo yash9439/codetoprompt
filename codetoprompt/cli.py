@@ -98,6 +98,8 @@ def run_prompt_generation(args: argparse.Namespace, console: Console):
             "Respect .gitignore": args.respect_gitignore, "Show Line Numbers": args.show_line_numbers,
             "Count Tokens": args.count_tokens, "Compress Code": args.compress, "Max Tokens": args.max_tokens or "Unlimited", "Tree Depth": args.tree_depth,
             "Output Format": args.output_format, "Interactive Mode": args.interactive,
+            "File Max Lines": args.file_max_lines or "Unlimited", 
+            "File Max Bytes": args.file_max_bytes or "Unlimited", 
         }
         show_config_panel(console, display_config, "CodeToPrompt (Local)")
 
@@ -111,6 +113,8 @@ def run_prompt_generation(args: argparse.Namespace, console: Console):
             max_tokens=args.max_tokens, tree_depth=args.tree_depth,
             output_format=args.output_format,
             explicit_files=explicit_files,
+            file_max_lines=args.file_max_lines,
+            file_max_bytes=args.file_max_bytes,
         )
 
         with Progress(

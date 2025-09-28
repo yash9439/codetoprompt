@@ -92,27 +92,42 @@ def should_skip_path(path: Path, root_dir: Path) -> bool:
     return False
 
 
-def read_and_truncate_file(file_path: Path, line_limit: int) -> Tuple[Optional[str], bool]:
+def read_and_truncate_file(file_path: Path, line_limit: Optional[int] = None, byte_limit: Optional[int] = None) -> Tuple[Optional[str], bool]:
     """
-    Reads a file's content, truncating it to a specific number of lines if it's longer.
+    Reads a file's content, truncating it to a specific number of lines or bytes.
     Returns a tuple of (content, was_truncated). Content is None if reading fails.
     """
     encodings = ['utf-8', 'latin-1', 'cp1252']
+    was_truncated = False
+    
     for encoding in encodings:
         try:
             with open(file_path, 'r', encoding=encoding) as f:
                 lines = []
-                was_truncated = False
+                current_bytes = 0
+                
+                # Optimization: if no limits, read all efficiently
+                if line_limit is None and byte_limit is None:
+                    return f.read(), False
+
                 for i, line in enumerate(f):
-                    if i < line_limit:
-                        lines.append(line)
-                    else:
+                    line_bytes = len(line.encode(encoding))
+                    
+                    # Check line limit
+                    if line_limit is not None and i >= line_limit:
                         was_truncated = True
                         break
+                    
+                    # Check byte limit: We stop before adding the full line if it exceeds the limit.
+                    if byte_limit is not None and current_bytes + line_bytes > byte_limit:
+                        was_truncated = True
+                        break
+                    
+                    lines.append(line)
+                    current_bytes += line_bytes
                 
                 content = "".join(lines)
-                if '\x00' in content:  # Check for binary content
-                    continue
+                if '\x00' in content: return None, False
                 
                 return content, was_truncated
         except Exception:
@@ -121,28 +136,18 @@ def read_and_truncate_file(file_path: Path, line_limit: int) -> Tuple[Optional[s
 
 
 def read_file_safely(file_path: Path, show_line_numbers: bool = True) -> Optional[str]:
-    """Read file content with encoding fallback."""
-    encodings = ['utf-8', 'latin-1', 'cp1252']
+    """Read file content with encoding fallback, applying line numbers if requested."""
+    # Use the general reader without limits
+    content, _ = read_and_truncate_file(file_path, line_limit=None, byte_limit=None)
     
-    for encoding in encodings:
-        try:
-            with open(file_path, 'r', encoding=encoding) as f:
-                content = f.read()
-            
-            if not content.strip() or '\x00' in content:
-                return None
-            
-            if show_line_numbers:
-                lines = content.splitlines()
-                return '\n'.join(f"{i+1:4d} | {line}" for i, line in enumerate(lines))
-            
-            return content
-        except UnicodeDecodeError:
-            continue
-        except Exception:
-            return None
+    if content is None or not content.strip():
+        return None
     
-    return None
+    if show_line_numbers:
+        lines = content.splitlines()
+        return '\n'.join(f"{i+1:4d} | {line}" for i, line in enumerate(lines))
+    
+    return content
 
 def is_url(path: str) -> bool:
     """Check if the given path string is a URL."""

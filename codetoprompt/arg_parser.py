@@ -57,6 +57,10 @@ def create_main_parser() -> argparse.ArgumentParser:
     parser.add_argument("--exclude", help="Comma-separated glob patterns of files to exclude (local only).")
     parser.add_argument("--max-tokens", type=int, default=config.get("max_tokens"), help="Warn if token count exceeds this limit.")
     parser.add_argument("--tree-depth", type=int, default=config.get("tree_depth"), help="Maximum depth for the project structure tree (local only).")
+    
+    # --- NEW FILE LIMITS ---
+    parser.add_argument("--file-max-lines", type=int, default=None, help="Maximum lines per file to include (local only). Truncates file if exceeded.")
+    parser.add_argument("--file-max-bytes", type=int, default=None, help="Maximum bytes per file to include (local only). Truncates file if exceeded.")
 
     # Add boolean flags with defaults from config
     rg_group = parser.add_mutually_exclusive_group()
