@@ -1,5 +1,6 @@
 """Handles fetching and processing of remote URL targets."""
 
+import os
 import re
 import requests
 from io import BytesIO
@@ -12,6 +13,15 @@ from PyPDF2 import PdfReader
 from youtube_transcript_api import YouTubeTranscriptApi
 
 from .utils import EXT_TO_LANG
+
+
+def _github_headers() -> Dict[str, str]:
+    """Build GitHub API headers, including auth if a token is available."""
+    headers = {'Accept': 'application/vnd.github.v3+json'}
+    token = os.environ.get('GITHUB_TOKEN') or os.environ.get('GH_TOKEN')
+    if token:
+        headers['Authorization'] = f'Bearer {token}'
+    return headers
 
 # Constants for GitHub processing
 EXCLUDED_DIRS = ["dist", "node_modules", ".git", "__pycache__", ".vscode", ".idea"]
@@ -38,11 +48,13 @@ def _is_allowed_filetype(filename: str) -> bool:
 
 
 def _process_pdf_content(content: bytes) -> str:
-    """Extracts text from PDF bytes."""
+    """Extracts text from PDF bytes, preserving page boundaries."""
     try:
         with BytesIO(content) as pdf_file:
             pdf_reader = PdfReader(pdf_file)
-            return ' '.join(page.extract_text() or '' for page in pdf_reader.pages)
+            # Join with double newlines so the last word of one page does not
+            # run into the first word of the next.
+            return '\n\n'.join((page.extract_text() or '').strip() for page in pdf_reader.pages)
     except Exception as e:
         return f"Error processing PDF: {e}"
 
@@ -63,23 +75,33 @@ def process_github_repo(repo_url: str) -> Dict[str, Any]:
         api_url += f"?ref={branch}"
 
     files_data: List[Dict[str, str]] = []
+    errors: List[str] = []
+    headers = _github_headers()
 
     def fetch_dir_contents(url: str):
         try:
-            response = requests.get(url, headers={'Accept': 'application/vnd.github.v3+json'})
+            response = requests.get(url, headers=headers)
+            if response.status_code == 403 and 'rate limit' in response.text.lower():
+                errors.append(
+                    "GitHub API rate limit exceeded. Set the GITHUB_TOKEN environment "
+                    "variable to authenticate and raise the limit."
+                )
+                return
             response.raise_for_status()
             for item in response.json():
                 if item['type'] == 'dir' and item['name'] not in EXCLUDED_DIRS:
                     fetch_dir_contents(item['url'])
                 elif item['type'] == 'file' and _is_allowed_filetype(item['name']):
-                    file_resp = requests.get(item['download_url'])
+                    file_resp = requests.get(item['download_url'], headers=headers)
                     if file_resp.status_code == 200:
                         files_data.append({'path': item['path'], 'content': file_resp.text})
-        except requests.RequestException:
-            pass  # Silently ignore directory fetch errors
+                    else:
+                        errors.append(f"Failed to download {item['path']}: HTTP {file_resp.status_code}")
+        except requests.RequestException as e:
+            errors.append(f"GitHub fetch error for {url}: {e}")
 
     fetch_dir_contents(api_url)
-    return {'files': files_data}
+    return {'files': files_data, 'errors': errors}
 
 
 def process_youtube_transcript(url: str) -> Dict[str, Any]:
@@ -89,8 +111,20 @@ def process_youtube_transcript(url: str) -> Dict[str, Any]:
     if not video_id:
         return {'content': "Error: Could not extract YouTube video ID.", 'source': url}
     try:
-        transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
-        transcript = " ".join(item["text"] for item in transcript_list)
+        # Newer versions of youtube-transcript-api removed the static
+        # get_transcript() in favour of an instance .fetch() method that
+        # returns FetchedTranscriptSnippet objects. Try the new API first,
+        # then fall back to the legacy one for older installs.
+        try:
+            fetched = YouTubeTranscriptApi().fetch(video_id)
+            try:
+                items = list(fetched)  # iterable of snippet objects
+                transcript = " ".join(getattr(s, "text", "") or s["text"] for s in items)
+            except Exception:
+                transcript = " ".join(item["text"] for item in fetched)
+        except AttributeError:
+            transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
+            transcript = " ".join(item["text"] for item in transcript_list)
         return {'content': transcript, 'source': url}
     except Exception as e:
         return {'content': f"Error fetching transcript: {e}", 'source': url}

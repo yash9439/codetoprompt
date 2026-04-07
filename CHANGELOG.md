@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## \[0.7.3] - 2026-04-07
+### Added
+
+*   **Smart Data File Handling**: Data files (`.csv`, `.json`, `.jsonl`) now support nuanced inclusion strategies:
+    *   `--truncate-data-files` / `--no-truncate-data-files`: master toggle (config: `truncate_data_files`, default `true`).
+    *   `--data-file-threshold-lines <num>`: only truncate data files exceeding this many lines (config: `data_file_threshold_lines`, default `50`). Small datasets are now included in full.
+    *   `--data-file-max-per-dir <num>`: when a directory contains more same-extension data files than this, only the first N are kept and the rest are summarised in an `Omitted Data File Groups` section. Set to `0` to disable. (config: `data_file_max_per_dir`, default `5`.) This prevents per-record dataset layouts (50+ near-identical JSON files) from drowning out the rest of the prompt.
+
+### Fixed
+
+*   **CXML output**: file content containing the literal string `</document_content>` no longer breaks the surrounding XML envelope; the closing tag is now neutralized inside content blocks.
+*   **Directory pruning**: skipped directories (e.g. `node_modules`, `.git`) are now pruned at enqueue time during file discovery, avoiding unnecessary work in large monorepos.
+*   **GitHub fetcher**: errors and rate-limits are now surfaced as warnings instead of being silently swallowed. Added support for `GITHUB_TOKEN` / `GH_TOKEN` environment variables to raise the API rate limit.
+*   **PDF extraction**: pages are now joined with double newlines, so the last word of one page no longer runs into the first word of the next.
+*   **YouTube transcripts**: now compatible with both the legacy `YouTubeTranscriptApi.get_transcript()` and the newer instance-based `.fetch()` API.
+*   **Snapshot diff**: unchanged files are no longer re-hashed on every diff. The current-state index now reuses the snapshot's `sha256` when both `size` and `mtime` match, drastically speeding up diffs on large repos.
+*   **Token-count fallback**: snapshot diffs now report `0` tokens when `tiktoken` is unavailable, matching the rest of the tool instead of returning a misleading whitespace approximation.
+
+---
 ## \[0.7.2] - 2025-08-11
 ### Added
 

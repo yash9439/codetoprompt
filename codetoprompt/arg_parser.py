@@ -62,6 +62,13 @@ def create_main_parser() -> argparse.ArgumentParser:
     parser.add_argument("--file-max-lines", type=int, default=None, help="Maximum lines per file to include (local only). Truncates file if exceeded.")
     parser.add_argument("--file-max-bytes", type=int, default=None, help="Maximum bytes per file to include (local only). Truncates file if exceeded.")
 
+    # --- DATA FILE HANDLING ---
+    df_group = parser.add_mutually_exclusive_group()
+    df_group.add_argument("--truncate-data-files", action="store_true", dest="truncate_data_files", default=None, help="Truncate large data files (.csv/.json/.jsonl). Overrides config.")
+    df_group.add_argument("--no-truncate-data-files", action="store_false", dest="truncate_data_files", help="Always include data files in full. Overrides config.")
+    parser.add_argument("--data-file-threshold-lines", type=int, default=None, help="Only truncate data files exceeding this many lines (local only).")
+    parser.add_argument("--data-file-max-per-dir", type=int, default=None, help="Max data files of the same extension to keep per directory; 0 disables (local only).")
+
     # Add boolean flags with defaults from config
     rg_group = parser.add_mutually_exclusive_group()
     rg_group.add_argument("--respect-gitignore", action="store_true", dest="respect_gitignore", default=None, help="Respect .gitignore rules (local only, overrides config).")
@@ -104,6 +111,9 @@ def create_main_parser() -> argparse.ArgumentParser:
         compress=config.get("compress", False),
         count_tokens=config.get("count_tokens", True),
         output_format=config.get("output_format", "default"),
+        truncate_data_files=config.get("truncate_data_files", True),
+        data_file_threshold_lines=config.get("data_file_threshold_lines", 50),
+        data_file_max_per_dir=config.get("data_file_max_per_dir", 5),
     )
 
     return parser

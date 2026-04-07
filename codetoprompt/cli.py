@@ -98,8 +98,11 @@ def run_prompt_generation(args: argparse.Namespace, console: Console):
             "Respect .gitignore": args.respect_gitignore, "Show Line Numbers": args.show_line_numbers,
             "Count Tokens": args.count_tokens, "Compress Code": args.compress, "Max Tokens": args.max_tokens or "Unlimited", "Tree Depth": args.tree_depth,
             "Output Format": args.output_format, "Interactive Mode": args.interactive,
-            "File Max Lines": args.file_max_lines or "Unlimited", 
-            "File Max Bytes": args.file_max_bytes or "Unlimited", 
+            "File Max Lines": args.file_max_lines or "Unlimited",
+            "File Max Bytes": args.file_max_bytes or "Unlimited",
+            "Truncate Data Files": args.truncate_data_files,
+            "Data File Threshold Lines": args.data_file_threshold_lines,
+            "Data File Max Per Dir": args.data_file_max_per_dir,
         }
         show_config_panel(console, display_config, "CodeToPrompt (Local)")
 
@@ -115,6 +118,9 @@ def run_prompt_generation(args: argparse.Namespace, console: Console):
             explicit_files=explicit_files,
             file_max_lines=args.file_max_lines,
             file_max_bytes=args.file_max_bytes,
+            truncate_data_files=args.truncate_data_files,
+            data_file_threshold_lines=args.data_file_threshold_lines,
+            data_file_max_per_dir=args.data_file_max_per_dir,
         )
 
         with Progress(

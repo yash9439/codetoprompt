@@ -206,22 +206,50 @@ def run_snapshot_command(args: argparse.Namespace, console: Console) -> int:
     return 0
 
 
-def _build_current_index(root_dir: Path, include_patterns: Optional[List[str]], exclude_patterns: Optional[List[str]], respect_gitignore: bool) -> Dict[str, Dict[str, Any]]:
+def _build_current_index(
+    root_dir: Path,
+    include_patterns: Optional[List[str]],
+    exclude_patterns: Optional[List[str]],
+    respect_gitignore: bool,
+    prev_files: Optional[Dict[str, Dict[str, Any]]] = None,
+) -> Dict[str, Dict[str, Any]]:
+    """Build a current-state index. If prev_files is given, files whose size
+    AND mtime match the snapshot reuse the previous sha256 (avoiding a full
+    re-hash of unchanged files)."""
     index: Dict[str, Dict[str, Any]] = {}
     for path in _scan_files_with_scanner(root_dir, include_patterns, exclude_patterns, respect_gitignore):
-        rel = str(path.relative_to(root_dir))
         try:
-            raw = path.read_bytes()
+            rel = str(path.relative_to(root_dir))
         except Exception:
-            # Skip unreadable
+            rel = str(path)
+        try:
+            stat = path.stat()
+        except Exception:
             continue
+
+        size = stat.st_size
+        mtime = stat.st_mtime
+        text = is_text_file(path)
+
+        sha256: Optional[str] = None
+        if prev_files is not None:
+            prev = prev_files.get(rel)
+            if prev and prev.get("size") == size and prev.get("mtime") == mtime:
+                sha256 = prev.get("sha256")
+
+        if sha256 is None:
+            try:
+                raw = path.read_bytes()
+            except Exception:
+                continue
+            sha256 = _sha256_bytes(raw)
+
         index[rel] = {
             "path": rel,
-            "size": path.stat().st_size,
-            "mtime": path.stat().st_mtime,
-            "sha256": _sha256_bytes(raw),
-            "is_text": is_text_file(path),
-            # content loaded lazily for text files below
+            "size": size,
+            "mtime": mtime,
+            "sha256": sha256,
+            "is_text": text,
         }
     return index
 
@@ -241,13 +269,15 @@ def _unified_diff(old_text: str, new_text: str, rel_path: str) -> str:
 
 
 def _count_tokens(text: str) -> int:
+    # Match core.py behavior: when tiktoken is unavailable, report 0 rather
+    # than a misleading whitespace approximation, so the user knows the
+    # number is not real.
     if _TOKENIZER is None:
-        # Fallback approximation: whitespace tokenization
-        return len(text.split()) if text else 0
+        return 0
     try:
         return len(_TOKENIZER.encode(text, disallowed_special=()))
     except Exception:
-        return len(text.split()) if text else 0
+        return 0
 
 
 def _copy_text_to_clipboard(text: str, console: Console) -> bool:
@@ -320,7 +350,7 @@ def run_diff_command(args: argparse.Namespace, console: Console) -> int:
     show_config_panel(console, display_config, "Diff Against Snapshot")
 
     prev_files: Dict[str, Dict[str, Any]] = {f["path"]: f for f in snapshot.get("files", [])}
-    curr_index = _build_current_index(root, include_patterns, exclude_patterns, respect_gitignore)
+    curr_index = _build_current_index(root, include_patterns, exclude_patterns, respect_gitignore, prev_files=prev_files)
 
     prev_paths = set(prev_files.keys())
     curr_paths = set(curr_index.keys())

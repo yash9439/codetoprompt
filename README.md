@@ -192,7 +192,11 @@ ctp . --compress
     def generate_prompt(self, progress): ...
     def analyse(self, progress, top_n): ...
 ```
-> **Automatic Data File Handling:** To further manage token count, `codetoprompt` automatically detects common data files (like `.csv`, `.json`) and includes **only the first 5 lines**.
+> **Smart Data File Handling:** `codetoprompt` treats `.csv`, `.json`, and `.jsonl` files specially to keep prompts useful without exploding token counts:
+> - **Small datasets pass through in full.** A file is only truncated if it exceeds `data_file_threshold_lines` (default **50**), so a 12-row config or sample dataset is included verbatim.
+> - **Large datasets are cut to the first 5 lines** with a truncation note appended.
+> - **Repetitive per-record layouts are clustered.** When a single directory contains more than `data_file_max_per_dir` files of the same data extension (default **5**), only that many are kept and the rest are summarized in an `Omitted Data File Groups` section. This stops 50 near-identical JSON record files from drowning out the rest of your code.
+> - **Toggle off entirely** with `--no-truncate-data-files` (or set `truncate_data_files = false` in config) to always include data files in full. Set `--data-file-max-per-dir 0` to disable clustering.
 
 ### 4. Adaptable Output Formats
 
@@ -286,6 +290,11 @@ Here is the full list of options for the main `codetoprompt` command.
 | `--interactive` | `-i` | Launch an interactive TUI to select files. | Local |
 | `--compress` | | Use smart code compression to summarize files. | Local |
 | `--show-line-numbers` | | Prepend line numbers to code. | Local |
+| `--file-max-lines <num>` | | Truncate any file exceeding this many lines. | Local |
+| `--file-max-bytes <num>` | | Truncate any file exceeding this many bytes. | Local |
+| `--no-truncate-data-files` | | Always include data files (`.csv`/`.json`/`.jsonl`) in full. | Local |
+| `--data-file-threshold-lines <num>` | | Only truncate data files larger than this. Default: 50. | Local |
+| `--data-file-max-per-dir <num>` | | Cap on same-extension data files kept per directory; 0 disables. Default: 5. | Local |
 | `--respect-gitignore` | | Respect `.gitignore` rules (default). Use `--no-respect-gitignore` to disable. | Local |
 | `--tree-depth <num>` | | Set the maximum depth for the project structure tree. | Local |
 | `--version` | `-v` | Display the installed version number. | N/A |
@@ -306,6 +315,12 @@ Set your preferred defaults once using the `config` command. Settings are saved 
 *   **Interactive Wizard**: `ctp config`
 *   **Show Current Config**: `ctp config --show`
 *   **Reset to Defaults**: `ctp config --reset`
+
+Additional data-file settings (configurable via the wizard or directly in `config.toml`):
+
+- **Truncate Data Files**: `truncate_data_files` (default: `true`). Master toggle.
+- **Data File Threshold Lines**: `data_file_threshold_lines` (default: `50`). Files at or below this size are kept in full even when truncation is on.
+- **Data File Max Per Dir**: `data_file_max_per_dir` (default: `5`). When a directory contains more same-extension data files than this, only the first N (sorted) are processed and the rest are summarized in the prompt. Set to `0` to disable.
 
 Additional snapshot-related settings:
 

@@ -28,6 +28,15 @@ DEFAULT_CONFIG = {
     # Snapshot-related defaults
     "snapshot_max_bytes": 3 * 1024 * 1024,  # 3 MB
     "snapshot_max_lines": 20000,
+    # Data-file handling: small datasets are useful in full, huge ones are noisy.
+    # When `truncate_data_files` is True, only files with more than
+    # `data_file_threshold_lines` lines are reduced to the first 5 lines.
+    # When a directory contains more than `data_file_max_per_dir` files of the
+    # same data extension, only that many are kept and the rest are summarised.
+    # Set `data_file_max_per_dir` to 0 to disable sibling clustering.
+    "truncate_data_files": True,
+    "data_file_threshold_lines": 50,
+    "data_file_max_per_dir": 5,
 }
 
 def get_config_path() -> Path:
@@ -101,6 +110,9 @@ def show_current_config(console: Console):
     table.add_row("Exclude Patterns", str(config.get('exclude_patterns') or "[] (None)"))
     table.add_row("Snapshot Max Bytes", str(config.get('snapshot_max_bytes')))
     table.add_row("Snapshot Max Lines", str(config.get('snapshot_max_lines')))
+    table.add_row("Truncate Data Files", str(config.get('truncate_data_files')))
+    table.add_row("Data File Threshold Lines", str(config.get('data_file_threshold_lines')))
+    table.add_row("Data File Max Per Dir", str(config.get('data_file_max_per_dir')))
 
     console.print(table)
     console.print(f"\n[dim]Config file location: {get_config_path()}[/dim]")
@@ -165,6 +177,24 @@ def run_config_wizard(console: Console):
         default=str(snap_lines_default)
     )
     new_config["snapshot_max_lines"] = int(snap_lines_str) if snap_lines_str.isdigit() else snap_lines_default
+
+    # Data-file handling
+    new_config["truncate_data_files"] = Confirm.ask(
+        "Truncate large data files (.csv/.json/.jsonl) by default?",
+        default=current_config.get("truncate_data_files", True),
+    )
+    threshold_default = current_config.get("data_file_threshold_lines", 50)
+    threshold_str = Prompt.ask(
+        "Only truncate data files larger than how many lines?",
+        default=str(threshold_default),
+    )
+    new_config["data_file_threshold_lines"] = int(threshold_str) if threshold_str.isdigit() else threshold_default
+    per_dir_default = current_config.get("data_file_max_per_dir", 5)
+    per_dir_str = Prompt.ask(
+        "Max data files of the same extension to keep per directory (0 to disable)",
+        default=str(per_dir_default),
+    )
+    new_config["data_file_max_per_dir"] = int(per_dir_str) if per_dir_str.isdigit() else per_dir_default
 
     save_config(new_config)
     console.print(f"\n[green]✓ Configuration saved to:[/] {get_config_path()}")

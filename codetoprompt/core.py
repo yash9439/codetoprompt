@@ -54,7 +54,10 @@ class CodeToPrompt:
         output_format: str = "default",
         explicit_files: Optional[List[Path]] = None,
         file_max_lines: Optional[int] = None,
-        file_max_bytes: Optional[int] = None, 
+        file_max_bytes: Optional[int] = None,
+        truncate_data_files: bool = True,
+        data_file_threshold_lines: int = 50,
+        data_file_max_per_dir: int = 5,
     ):
         self.console = Console()
         self.target = target
@@ -72,6 +75,12 @@ class CodeToPrompt:
         # NEW LIMITS
         self.file_max_lines = file_max_lines
         self.file_max_bytes = file_max_bytes
+
+        # Data-file handling
+        self.truncate_data_files = truncate_data_files
+        self.data_file_threshold_lines = data_file_threshold_lines
+        self.data_file_max_per_dir = data_file_max_per_dir
+        self.omitted_data_groups: List[Dict[str, Any]] = []
         
         # Initialize PathSpec for user-defined include/exclude patterns
         self.user_include_spec: Optional[PathSpec] = None
@@ -170,6 +179,8 @@ class CodeToPrompt:
         
         if url_type == "github":
             data = remote.process_github_repo(self.target)
+            for err in data.get('errors', []) or []:
+                self.console.print(f"[yellow]Warning:[/yellow] {err}")
             self._populate_processed_files_from_github(data)
             self._build_github_prompt(data)
         else:
@@ -273,6 +284,7 @@ class CodeToPrompt:
         if self._files_processed: return
 
         files = self._get_files_to_process()
+        files = self._apply_data_file_clustering(files)
         if progress:
             task = progress.add_task("Processing files...", total=len(files))
         
@@ -298,11 +310,30 @@ class CodeToPrompt:
                 line_limit = None
                 byte_limit = None
                 
-                # 2. Specialized Data File Truncation (Highest priority for these types)
+                # 2. Specialized Data File Truncation
+                # Only truncate data files when:
+                #   - the toggle is on AND
+                #   - the file actually exceeds the threshold (so small datasets
+                #     of e.g. 10 rows are still included in full).
                 if file_path.suffix.lower() in DATA_FILE_EXTENSIONS:
-                    line_limit = DATA_FILE_LINE_LIMIT
-                    file_truncation_notes[file_path] = "data_limit"
-                
+                    if self.truncate_data_files:
+                        threshold = self.data_file_threshold_lines or 0
+                        if threshold > 0:
+                            # Cheap probe: read up to threshold+1 lines.
+                            probe, exceeded = read_and_truncate_file(
+                                file_path, line_limit=threshold + 1
+                            )
+                            if exceeded:
+                                line_limit = DATA_FILE_LINE_LIMIT
+                                file_truncation_notes[file_path] = "data_limit"
+                            else:
+                                # Small dataset: keep the full content we already read.
+                                raw_content = probe
+                        else:
+                            line_limit = DATA_FILE_LINE_LIMIT
+                            file_truncation_notes[file_path] = "data_limit"
+                    # else: truncation disabled — fall through to normal full read
+
                 # 3. Apply general file limits if set (only if not a data file)
                 elif self.file_max_lines or self.file_max_bytes:
                     line_limit = self.file_max_lines
@@ -369,11 +400,65 @@ class CodeToPrompt:
         self._files_processed = True
         self._build_local_prompt()
 
+    def _apply_data_file_clustering(self, files: List[Path]) -> List[Path]:
+        """When a directory contains many data files of the same extension,
+        keep only the first N (by sorted name) and emit a single summary
+        entry for the rest. Avoids the prompt being dominated by 50 near-
+        identical CSV/JSON headers from a per-record dataset layout.
+
+        Set ``data_file_max_per_dir`` to 0 to disable.
+        """
+        self.omitted_data_groups = []
+        max_per_dir = self.data_file_max_per_dir or 0
+        if max_per_dir <= 0:
+            return files
+
+        groups: Dict[Any, List[Path]] = {}
+        for f in files:
+            ext = f.suffix.lower()
+            if ext in DATA_FILE_EXTENSIONS:
+                groups.setdefault((f.parent, ext), []).append(f)
+
+        skip: Set[Path] = set()
+        for (parent, ext), group in groups.items():
+            if len(group) > max_per_dir:
+                ordered = sorted(group)
+                kept = ordered[:max_per_dir]
+                omitted = ordered[max_per_dir:]
+                skip.update(omitted)
+                self.omitted_data_groups.append({
+                    "dir": parent,
+                    "ext": ext,
+                    "total": len(group),
+                    "kept": len(kept),
+                    "omitted": len(omitted),
+                    "sample": [p.name for p in omitted[:3]],
+                })
+
+        if not skip:
+            return files
+        return [f for f in files if f not in skip]
+
     def _build_local_prompt(self):
         """Builds the final prompt string for a local directory."""
         if not self.root_dir: return
         parts = ["Project Structure:", self._build_tree_structure(), ""]
         self._format_processed_files(parts)
+        if self.omitted_data_groups:
+            parts.append("")
+            parts.append("Omitted Data File Groups:")
+            for g in self.omitted_data_groups:
+                try:
+                    rel_dir = g["dir"].relative_to(self.root_dir)
+                    rel_dir_str = str(rel_dir) if str(rel_dir) != "." else "."
+                except ValueError:
+                    rel_dir_str = str(g["dir"])
+                sample = ", ".join(g["sample"])
+                more = "" if g["omitted"] <= 3 else ", ..."
+                parts.append(
+                    f"  - {rel_dir_str}/*{g['ext']}: kept {g['kept']} of {g['total']} "
+                    f"(omitted {g['omitted']} similar files: {sample}{more})"
+                )
         self._generated_prompt = "\n".join(parts).strip()
         
     def _format_processed_files(self, parts: List[str]):
@@ -414,9 +499,14 @@ class CodeToPrompt:
             while backticks in content: backticks += "`"
             parts.extend([f"## {rel_path}", f"{backticks}{lang}", content, f"{backticks}", ""])
         elif self.output_format == "cxml":
+            # Guard against file content that itself contains </document_content>,
+            # which would otherwise produce malformed XML. Neutralize the closing
+            # tag by inserting a zero-width space; preserves human readability and
+            # keeps the XML well-formed.
+            safe_content = content.replace("</document_content>", "</document\u200b_content>")
             parts.extend([
                 f'<document index="{self.xml_index}">', f"<source>{rel_path}</source>",
-                "<document_content>", content, "</document_content>", "</document>", ""
+                "<document_content>", safe_content, "</document_content>", "</document>", ""
             ])
             self.xml_index += 1
 
@@ -503,6 +593,10 @@ class CodeToPrompt:
             try:
                 for path in current_dir.iterdir():
                     if path.is_dir():
+                        # Prune skipped directories at enqueue time so we never
+                        # descend into node_modules/.git/etc.
+                        if should_skip_path(path, self.root_dir):
+                            continue
                         dirs_to_visit.append(path)
                     elif self._should_include_file(path):
                         files_to_process.append(path)
